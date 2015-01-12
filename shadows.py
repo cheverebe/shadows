@@ -16,7 +16,7 @@ def listener():
     # P = I - u * ut
     U = np.array([[1.0/math.sqrt(2), -1.0/math.sqrt(2), 0], [1.0/math.sqrt(6), 1.0/math.sqrt(6), -2.0/math.sqrt(6)]])
 
-    name = 'palmera'
+    name = 'balcon'
     ext = 'png'
     img = cv2.imread('img/'+name+"."+ext)
     cv2.namedWindow('Original image', cv2.WINDOW_NORMAL)
@@ -76,7 +76,7 @@ def listener():
     min_mono = []
     entropy_array = []
 
-    angles = xrange(1, 180, 3)
+    angles = [151]#xrange(1, 180, 3)
     min_angle = 0   #hack horriible
 
     for angle in angles:
@@ -92,12 +92,12 @@ def listener():
 
     print 'min angle: '+str(min_angle)
 
-    matplotlib.rcParams['axes.unicode_minus'] = False
-    fig, ax = plt.subplots()
-    ax.plot(angles, entropy_array, '.')
-    ax.set_title('Entropy')
-    plt.show()
-    plt.savefig('img/out/'+name+'/plot.png')
+    #matplotlib.rcParams['axes.unicode_minus'] = False
+    #fig, ax = plt.subplots()
+    #ax.plot(angles, entropy_array, '.')
+    #ax.set_title('Entropy')
+    #plt.show()
+    #plt.savefig('img/out/'+name+'/plot.png')
 
     #search for max min values
     mono_img = np.array(min_mono)
@@ -133,6 +133,22 @@ def listener():
     cv2.namedWindow('Mono2', cv2.WINDOW_NORMAL)
     cv2.imshow('Mono2', min_mono2)
     cv2.imwrite('img/out/'+name+'/out2_'+str(min_angle)+'.'+ext, min_mono2*255)
+
+    edges1 = cv2.Canny(np.uint8(min_mono2*255),150,250)
+
+    #PRINT edges
+    cv2.namedWindow('Edges1', cv2.WINDOW_NORMAL)
+    cv2.imshow('Edges1', edges1)
+    cv2.imwrite('img/out/'+name+'/edges_'+str(min_angle)+'.'+ext, edges1)
+
+    #mshft=cv2.pyrMeanShiftFiltering()
+    edges2 = cv2.Canny(img,150,250)
+
+    #PRINT edges
+    cv2.namedWindow('Edges2', cv2.WINDOW_NORMAL)
+    cv2.imshow('Edges2', edges2)
+    cv2.imwrite('img/out/'+name+'/edges2_'+str(min_angle)+'.'+ext, edges2)
+
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
