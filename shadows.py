@@ -119,7 +119,7 @@ def listener():
     print "Range: "+str(rango)
     print "Coefficient: "+str(coef)
 
-    #ADAPT RANGE TO 0..1
+    #ADAPT RANGE TO 0..1----------------
     min_mono2 = np.array([[coef*(elem-min_val) for elem in row] for row in min_mono])
 
     print "\n>>>Invariant image(in range)<<<"
@@ -134,22 +134,53 @@ def listener():
     cv2.imshow('Mono2', min_mono2)
     cv2.imwrite('img/out/'+name+'/out2_'+str(min_angle)+'.'+ext, min_mono2*255)
 
-    edges1 = cv2.Canny(np.uint8(min_mono2*255),150,250)
+    #-------------------------------------------
+    #EDGES CANNY------------------
+    sp = 15
+    sr = 30
+    r = np.uint8(min_mono2*255)
+    m = cv2.merge((r,r,r))
+    mshft=cv2.pyrMeanShiftFiltering(m,sp,sr)
+    (r,g,b) = cv2.split(mshft)
+
+    cv2.namedWindow('Mean Shifted', cv2.WINDOW_NORMAL)
+    cv2.imshow('Mean Shifted', r)
+    cv2.imwrite('img/out/'+name+'/mshft_'+str(min_angle)+'.'+ext, mshft)
+
+    tmin = 100
+    tmax = 150
+    edges1 = cv2.Canny(mshft,tmin,tmax)
 
     #PRINT edges
     cv2.namedWindow('Edges1', cv2.WINDOW_NORMAL)
     cv2.imshow('Edges1', edges1)
     cv2.imwrite('img/out/'+name+'/edges_'+str(min_angle)+'.'+ext, edges1)
+    #-------------------------------------------------
 
-    #mshft=cv2.pyrMeanShiftFiltering()
-    edges2 = cv2.Canny(img,150,250)
+    #MEAN SHIFTED---------------------
+    sp = 15
+    sr = 30
+    mshft2=cv2.pyrMeanShiftFiltering(img,sp,sr)
 
-    #PRINT edges
+    cv2.namedWindow('Mean Shifted 2', cv2.WINDOW_NORMAL)
+    cv2.imshow('Mean Shifted 2', mshft2)
+    cv2.imwrite('img/out/'+name+'/mshft2_'+str(min_angle)+'.'+ext, mshft2)
+
+    tmin2 = 150
+    tmax2 = 250
+    edges2 = cv2.Canny(mshft2,tmin2,tmax2 )
+
+    #PRINT edges 2
     cv2.namedWindow('Edges2', cv2.WINDOW_NORMAL)
     cv2.imshow('Edges2', edges2)
     cv2.imwrite('img/out/'+name+'/edges2_'+str(min_angle)+'.'+ext, edges2)
-
-
+    #-------------------------------------------
+    #DIFERENCE---------------------
+    diff = edges2-edges1
+    cv2.namedWindow('Diff', cv2.WINDOW_NORMAL)
+    cv2.imshow('Diff', diff)
+    cv2.imwrite('img/out/'+name+'/diff_'+str(min_angle)+'.'+ext, diff)
+    #-------------------------------------------
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
