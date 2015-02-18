@@ -70,12 +70,15 @@ def get_invariant_l1_chrom_image(two_dim, min_angle):
     U = get_U()
     rad = math.radians(min_angle)
     e_orth = np.array([math.cos(rad), math.sin(rad)])
-    P_e_orth = np.matrix([[e_orth[0] * e_orth[0],e_orth[0] * e_orth[0]],[e_orth[0] * e_orth[1],e_orth[1] * e_orth[1]]])
-    X_tita = [[P_e_orth * np.matrix(elem) for elem in row] for row in two_dim]
+    e_orth_m = np.matrix(e_orth)
+    e_orth_norm = cv2.norm(e_orth)
+    P_e_orth = np.matrix(e_orth_m.transpose() * e_orth_m / e_orth_norm)
+    X_tita = [[P_e_orth * np.matrix(elem) + e_orth_m.transpose() * 0.5 for elem in row] for row in two_dim]
+    print("pmonio ->"+str(X_tita[0][0]))
+    print("eorth"+str(e_orth))
     p_monio = [[(U.transpose() * np.matrix(elem)) for elem in row] for row in X_tita]
-    show_image("pmonio",np.array(p_monio))
     c_monio = np.array([[np.array([math.exp(val) for val in elem]) for elem in row] for row in p_monio])
-    (log_chrom, L1chrom) = log_chromaticity_image(c_monio)
+    (log_chrom, L1chrom) = log_chromaticity_image(c_monio*255)
     return L1chrom
 def listener():
     # Load an color image in grayscale
@@ -102,7 +105,8 @@ def listener():
 
     log_chrom_inv = get_invariant_l1_chrom_image(two_dim,min_angle)
     lci = np.array(log_chrom_inv)
-    show_and_save('L1_Chromacity_invariant', name, ext, lci)
+    show_and_save('L1_Chromacity_invariant', name, ext, lci, 255)
+    r = np.uint8(lci*255)
     #matplotlib.rcParams['axes.unicode_minus'] = False
     #fig, ax = plt.subplots()
     #ax.plot(angles, entropy_array, '.')
@@ -124,12 +128,11 @@ def listener():
     # #PRINT IMAGE 2
     # show_and_save('mono2', name, ext, min_mono2, 255)
     #
-    # #-------------------------------------------
-    # #EDGES CANNY------------------
+    #-------------------------------------------
+    #EDGES CANNY------------------
     # sp = 15
     # sr = 30
-    # r = np.uint8(min_mono2*255)
-    # m = cv2.merge((r,r,r))
+    m = cv2.merge((r,r,r))
     # mshft=cv2.pyrMeanShiftFiltering(m,sp,sr)
     # (r,g,b) = cv2.split(mshft)
     #
@@ -138,39 +141,32 @@ def listener():
     # cv2.imwrite('img/out/'+name+'/mshft_'+str(min_angle)+'.'+ext, mshft)
     #
     # mshft = r
-    # tmin = 20
-    # tmax = 55
-    # edges1 = cv2.Canny(min_mono2,tmin,tmax)
+    tmin = 20
+    tmax = 55
+    edges1 = cv2.Canny(r,tmin,tmax)
     #
-    # #PRINT edges
-    # cv2.namedWindow('Edges1', cv2.WINDOW_NORMAL)
-    # cv2.imshow('Edges1', edges1)
-    # cv2.imwrite('img/out/'+name+'/edges_'+str(min_angle)+'.'+ext, edges1)
-    # #-------------------------------------------------
+    #PRINT edges
+    show_and_save('Edges_L1', name, ext, edges1)
+    #-------------------------------------------------
     #
-    # #MEAN SHIFTED---------------------
-    # sp = 25
-    # sr = 50
-    # mshft2=cv2.pyrMeanShiftFiltering(img,sp,sr)
+    #MEAN SHIFTED---------------------
+    sp = 25
+    sr = 50
+    mshft2=cv2.pyrMeanShiftFiltering(img,sp,sr)
+
+    show_and_save('Mshft2', name, ext, mshft2)
     #
-    # cv2.namedWindow('Mean Shifted 2', cv2.WINDOW_NORMAL)
-    # cv2.imshow('Mean Shifted 2', mshft2)
-    # cv2.imwrite('img/out/'+name+'/mshft2_'+str(min_angle)+'.'+ext, mshft2)
+    tmin2 = 150
+    tmax2 = 250
+    edges2 = cv2.Canny(mshft2,tmin2,tmax2 )
     #
-    # tmin2 = 150
-    # tmax2 = 250
-    # edges2 = cv2.Canny(mshft2,tmin2,tmax2 )
-    #
-    # #PRINT edges 2
-    # cv2.namedWindow('Edges2', cv2.WINDOW_NORMAL)
-    # cv2.imshow('Edges2', edges2)
-    # cv2.imwrite('img/out/'+name+'/edges2_'+str(min_angle)+'.'+ext, edges2)
+    #PRINT edges 2
+    show_and_save('Edges2', name, ext, edges2)
     # #-------------------------------------------
     # #DIFERENCE---------------------
-    # diff = edges2-edges1
-    # cv2.namedWindow('Diff', cv2.WINDOW_NORMAL)
-    # cv2.imshow('Diff', diff)
-    # cv2.imwrite('img/out/'+name+'/diff_'+str(min_angle)+'.'+ext, diff)
+    diff = edges2-edges1
+    show_and_save('Diff', name, ext, diff)
+
     #-------------------------------------------
     cv2.waitKey(0)
     cv2.destroyAllWindows()
