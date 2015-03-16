@@ -73,13 +73,14 @@ def get_invariant_l1_chrom_image(two_dim, min_angle):
     e_orth_m = np.matrix(e_orth)
     e_orth_norm = cv2.norm(e_orth)
     P_e_orth = np.matrix(e_orth_m.transpose() * e_orth_m / e_orth_norm)
-    X_tita = [[P_e_orth * np.matrix(elem) + e_orth_m.transpose() * 0.5 for elem in row] for row in two_dim]
+    X_tita = [[P_e_orth * np.matrix(elem) + e_orth_m.transpose() * 0.7 for elem in row] for row in two_dim]
     print("pmonio ->"+str(X_tita[0][0]))
     print("eorth"+str(e_orth))
     p_monio = [[(U.transpose() * np.matrix(elem)) for elem in row] for row in X_tita]
     c_monio = np.array([[np.array([math.exp(val) for val in elem]) for elem in row] for row in p_monio])
     (log_chrom, L1chrom) = log_chromaticity_image(c_monio*255)
     return L1chrom
+
 def listener():
     # Load an color image in grayscale
 
