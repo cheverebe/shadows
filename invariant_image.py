@@ -1,7 +1,8 @@
 import numpy as np
 import math
 import cv2
-from utils import entropy
+from utils import entropy, get_extralight
+from settings import settings
 
 
 def get_invariant_l1_chrom_image(two_dim, min_angle):
@@ -11,11 +12,10 @@ def get_invariant_l1_chrom_image(two_dim, min_angle):
     e_orth_m = np.matrix(e_orth)
     e_orth_norm = cv2.norm(e_orth)
     P_e_orth = np.matrix(e_orth_m.transpose() * e_orth_m / e_orth_norm)
-    extralight = np.matrix([1, 1]).transpose() * 5
-    X_tita = [[P_e_orth * np.matrix(elem) + extralight for elem in row] for row in two_dim]
-    #print("pmonio ->"+str(X_tita[0][0]))
-    #print("eorth"+str(e_orth))
-    p_monio = [[(U.transpose() * np.matrix(elem)) for elem in row] for row in X_tita]
+    X_tita = np.array([[P_e_orth * np.matrix(elem) for elem in row] for row in two_dim])
+    extralight = get_extralight(X_tita, np.array(two_dim), e_orth)
+    X_tita = np.array([[np.matrix(elem) + extralight for elem in row] for row in X_tita])
+    p_monio = np.array([[(U.transpose() * np.matrix(elem)) for elem in row] for row in X_tita])
     c_monio = np.array([[np.array([math.exp(val) for val in elem]) for elem in row] for row in p_monio])
     (log_chrom, L1chrom) = log_chromaticity_image(c_monio*255)
     L1chrom = np.array(L1chrom)
@@ -67,6 +67,7 @@ def log_chromaticity_image(img):
                 L1chrom[j][i][2] = c_3 / (c_1 + c_2 + c_3)
 
     log_chrom = np.array(log_chrom)
+    print(log_chrom.shape)
     L1chrom = np.array(L1chrom)
     return log_chrom, L1chrom
 

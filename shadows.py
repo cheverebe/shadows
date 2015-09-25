@@ -19,7 +19,10 @@ def listener(angle=None):
 
     two_dim = project_to_2d(log_chrom)
 
-    (min_mono, min_angle) = minimize_entropy(two_dim, angle)
+    if angle:
+        min_angle = angle
+    else:
+        (min_mono, min_angle) = minimize_entropy(two_dim, angle)
 
     print 'min angle: '+str(min_angle)
 
@@ -32,7 +35,7 @@ def listener(angle=None):
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    listener(166)
+    listener(settings['predefined_angle'])
 
 # BALCON - min angle found: 151
 # PELOTA - min angle found: 109
