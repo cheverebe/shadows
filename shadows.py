@@ -12,8 +12,6 @@ def listener(angle=None):
 
     (log_chrom, L1chrom) = log_chromaticity_image(img)
 
-    print("max---"+str(L1chrom.max()))
-    print("min---"+str(L1chrom.min()))
     L1chrom = equalize_hist_3d(L1chrom)
     show_and_save('L1_Chromacity', name, ext, L1chrom, 255)
 
@@ -37,9 +35,6 @@ def listener(angle=None):
 if __name__ == '__main__':
     listener(settings['predefined_angle'])
 
-# BALCON - min angle found: 151
-# PELOTA - min angle found: 109
-#cono 166
 
 #r = load_L1CI_image(name, ext)
 #eq_lci = cv2.equalizeHist(r)

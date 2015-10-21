@@ -6,27 +6,22 @@ from utils import show_and_save, load_L1CI_image, load_image, equalize_hist_3d
 
 def reintegrate(lci, name, ext, img):
 
-    lci_eq = equalize_hist_3d(lci)
-    show_and_save('LCI_EQ', name, ext, lci_eq)
+    #  lci_eq = equalize_hist_3d(lci)
+    #  show_and_save('LCI_EQ', name, ext, lci_eq)
 
-    sp = 10
-    sr = 10
-    mshft_L1_EQ=cv2.pyrMeanShiftFiltering(lci_eq, sp, sr)
-
-    show_and_save('mshft_L1_EQ', name, ext, mshft_L1_EQ)
     # L1 EQ edges
     tmin2 = 30
     tmax2 = 50
-    edges_mshft_L1_EQ = cv2.Canny(mshft_L1_EQ, tmin2, tmax2)
+    edges_L1 = cv2.Canny(lci, tmin2, tmax2)
     #
     #PRINT Edges_L1_EQ_mshft edges
-    show_and_save('Edges_L1_EQ_mshft', name, ext, edges_mshft_L1_EQ)
+    show_and_save('Edges_L1', name, ext, edges_L1)
 
     #+++++++++++++++++++++++++++++
 
-    kernel = np.ones((3,3),np.uint8)
-    dilated_edges = cv2.dilate(edges_mshft_L1_EQ, kernel, iterations=1)
-    show_and_save('Dilated_L1_EQ_mshft', name, ext, dilated_edges)
+    kernel = np.ones((8,8),np.uint8)
+    dilated_edges = cv2.dilate(edges_L1, kernel, iterations=1)
+    show_and_save('Dilated_L1', name, ext, dilated_edges)
 
     #-------------------------------------------------
     #

@@ -1,8 +1,13 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'cono',
+    'name': 'palmera',
     'extension': 'png',
-    'extra_light_factor': 2,
-    'predefined_angle': 166
+    'predefined_angle': 124
 }
+
+
+# BALCON - min angle found: 151
+# PELOTA - min angle found: 109
+#cono 166
+#palmeras 124

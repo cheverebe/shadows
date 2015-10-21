@@ -12,7 +12,9 @@ def get_invariant_l1_chrom_image(two_dim, min_angle):
     e_orth_m = np.matrix(e_orth)
     e_orth_norm = cv2.norm(e_orth)
     P_e_orth = np.matrix(e_orth_m.transpose() * e_orth_m / e_orth_norm)
+    td = np.array(two_dim)
     X_tita = np.array([[P_e_orth * np.matrix(elem) for elem in row] for row in two_dim])
+    #X_tita = np.array(P_e_orth) * td
     extralight = get_extralight(X_tita, np.array(two_dim), e_orth)
     X_tita = np.array([[np.matrix(elem) + extralight for elem in row] for row in X_tita])
     p_monio = np.array([[(U.transpose() * np.matrix(elem)) for elem in row] for row in X_tita])
@@ -67,7 +69,6 @@ def log_chromaticity_image(img):
                 L1chrom[j][i][2] = c_3 / (c_1 + c_2 + c_3)
 
     log_chrom = np.array(log_chrom)
-    print(log_chrom.shape)
     L1chrom = np.array(L1chrom)
     return log_chrom, L1chrom
 
