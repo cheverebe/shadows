@@ -15,11 +15,11 @@ class Step3B(object):
         # L channel
         l_mean, l_stddev = cv2.meanStdDev(l)
         l_threashold = l_mean - l_stddev / 3
-        l_retval, l_mask = cv2.threshold(l, l_threashold, maxval, cv2.THRESH_BINARY)
+        l_retval, l_mask = cv2.threshold(l, l_threashold, maxval, cv2.THRESH_BINARY_INV)
         # L channel
         b_mean, b_stddev = cv2.meanStdDev(b)
         b_threashold = b_mean - b_stddev / 3
-        b_retval, b_mask = cv2.threshold(b, b_threashold, maxval, cv2.THRESH_BINARY)
+        b_retval, b_mask = cv2.threshold(b, b_threashold, maxval, cv2.THRESH_BINARY_INV)
 
         print("B")
         return cv2.bitwise_and(l_mask, l_mask, mask=b_mask)

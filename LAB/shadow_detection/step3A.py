@@ -10,6 +10,6 @@ class Step3A(object):
         mean, stddev = cv2.meanStdDev(l)
         threashold = mean - stddev / 3
         maxval = 255
-        retval, mask = cv2.threshold(l, threashold, maxval, cv2.THRESH_BINARY)
+        retval, mask = cv2.threshold(l, threashold, maxval, cv2.THRESH_BINARY_INV)
         print("A")
         return mask
