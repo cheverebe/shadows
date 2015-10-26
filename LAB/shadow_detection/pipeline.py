@@ -29,4 +29,5 @@ class ShadowDetectionPipeline(object):
 
         shadow_mask = self.step4.run(shadow_mask)
         result = self.step5.run(image, shadow_mask)
+        return result
         return self.step6.run(result)

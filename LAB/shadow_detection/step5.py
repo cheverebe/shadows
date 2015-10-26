@@ -1,6 +1,7 @@
 # Dilate/Erode mask
 import cv2
 import numpy as np
+from LAB.shadow_detection.step1 import Step1
 
 
 class Step5(object):
@@ -29,8 +30,9 @@ class Step5(object):
 
         for region_mask in b_region_masks:
             region = self.apply_mask(image, region_mask)
-            coef = self.get_coeficient(light_mask, lights, region_mask, region)
+            coef = self.get_coeficients(light_mask, lights, region_mask, region)
             print coef
+            self.apply_coefficient(coef, region)
             region *= coef
             shadows += region
 
@@ -39,10 +41,25 @@ class Step5(object):
     def apply_mask(self, image, mask):
         return cv2.bitwise_and(image, cv2.merge([mask, mask, mask]))
 
-    def get_coeficient(self, light_mask, lights, shadow_mask, shadows):
-        l_avg = sum([sm / cv2.sumElems(light_mask/255)[0] for sm in cv2.sumElems(lights)])/3
-        s_avg = sum([sm / cv2.sumElems(shadow_mask/255)[0] for sm in cv2.sumElems(shadows)])/3
-        return l_avg / s_avg
+    #def get_coeficient(self, light_mask, lights, shadow_mask, shadows):
+    #    l_avg = sum([sm / cv2.sumElems(light_mask/255)[0] for sm in cv2.sumElems(lights)])/3
+    #    s_avg = sum([sm / cv2.sumElems(shadow_mask/255)[0] for sm in cv2.sumElems(shadows)])/3
+    #    return l_avg / s_avg
+
+    def get_coeficients(self, light_mask, lights, shadow_mask, shadows):
+        l_avg = [sm / cv2.sumElems(light_mask/255)[0] for sm in cv2.sumElems(lights)]
+        s_avg = [sm / cv2.sumElems(shadow_mask/255)[0] for sm in cv2.sumElems(shadows)]
+        return [l_avg[i] / s_avg[i] for i in range(3)]
+
+    #def apply_coefficient(self, coef, image):
+    #    return image * coef
+
+    def apply_coefficients(self, coef, image):
+        l,a,b = cv2.split(image)
+        l *= coef[0]
+        a *= coef[1]
+        b *= coef[2]
+        return cv2.merge([l, a, b])
 
     def get_region_masks(self, shadow_mask):
         mask = shadow_mask.copy()
