@@ -9,7 +9,7 @@ class Step5(object):
         pass
 
     def run(self, image, shadow_mask):
-        shadows = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 3), np.uint8)
+        #shadows = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 3), np.uint8)
 
         b_region_masks, s_region_masks = self.get_region_masks(shadow_mask)
 
@@ -18,29 +18,36 @@ class Step5(object):
 
         for region_mask in s_region_masks:
             region = self.apply_mask(image, region_mask)
-            shadows += region
+            #shadows += region
             shadow_mask += region_mask
 
         for region_mask in b_region_masks:
             shadow_mask += region_mask
 
         light_mask = 255 - shadow_mask
-
         lights = self.apply_mask(image, light_mask)
+
+        result = image.copy()
 
         for region_mask in b_region_masks:
             region = self.apply_mask(image, region_mask)
             coef = self.get_coeficients(light_mask, lights, region_mask, region)
             print coef
-            self.apply_coefficient(coef, region)
-            region *= coef
-            shadows += region
+            region_mask = self.sanitize_mask(region_mask, shadow_mask)
+            region = self.apply_coefficients(coef, region)
+            region = self.apply_mask(region, region_mask)
+            #shadows += region
+            no_region = 255 - region_mask
+            result = self.apply_mask(result, no_region)
+            result += region
 
-        return shadows + lights
+        return result
 
     def apply_mask(self, image, mask):
         return cv2.bitwise_and(image, cv2.merge([mask, mask, mask]))
 
+    def sanitize_mask(self, dilated_mask, original_mask):
+        return cv2.bitwise_and(dilated_mask, original_mask)
     #def get_coeficient(self, light_mask, lights, shadow_mask, shadows):
     #    l_avg = sum([sm / cv2.sumElems(light_mask/255)[0] for sm in cv2.sumElems(lights)])/3
     #    s_avg = sum([sm / cv2.sumElems(shadow_mask/255)[0] for sm in cv2.sumElems(shadows)])/3
@@ -55,11 +62,11 @@ class Step5(object):
     #    return image * coef
 
     def apply_coefficients(self, coef, image):
-        l,a,b = cv2.split(image)
-        l *= coef[0]
-        a *= coef[1]
-        b *= coef[2]
-        return cv2.merge([l, a, b])
+        b, g, r = cv2.split(image)
+        b *= coef[0]
+        g *= coef[1]
+        r *= coef[2]
+        return cv2.merge([b, g, r])
 
     def get_region_masks(self, shadow_mask):
         mask = shadow_mask.copy()
