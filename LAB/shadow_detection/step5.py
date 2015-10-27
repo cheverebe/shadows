@@ -63,10 +63,13 @@ class Step5(object):
 
     def apply_coefficients(self, coef, image):
         b, g, r = cv2.split(image)
+        b = np.uint16(b)
+        g = np.uint16(g)
+        r = np.uint16(r)
         b *= coef[0]
         g *= coef[1]
         r *= coef[2]
-        return cv2.merge([b, g, r])
+        return self.saturate(cv2.merge([b, g, r]))
 
     def get_region_masks(self, shadow_mask):
         mask = shadow_mask.copy()
@@ -82,3 +85,9 @@ class Step5(object):
             else:
                 small_regions.append(img)
         return big_regions, small_regions
+
+    def saturate(self, image):
+        return cv2.convertScaleAbs(image)
+
+    def apply_multi_mask(self, image, mask):
+        return cv2.bitwise_and(image, mask)

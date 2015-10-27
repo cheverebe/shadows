@@ -6,7 +6,9 @@ from utils import show_and_save
 class Runner(object):
     def __init__(self):
         self.pipeline = ShadowDetectionPipeline()
-        self.image_name = '../../img/r1'
+        self.image_name = '../../img/kitti'
+        #self.image_name = '../../img/datasets/data_long_term/2009.09.08/data1/A_001_008.40_surfnav'
+
         self.image_ext = 'png'
         self.image = load_image(self.image_name, self.image_ext)
         self.iterations = 1
