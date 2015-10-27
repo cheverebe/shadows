@@ -27,7 +27,7 @@ class ShadowDetectionPipeline(object):
         else:
             shadow_mask = self.step3B.run(lab_image)
 
-        shadow_mask = self.step4.run(shadow_mask)
-        result = self.step5.run(image, shadow_mask)
+        dilated_shadow_mask = self.step4.run(shadow_mask)
+        result = self.step5.run(image, dilated_shadow_mask, shadow_mask)
         return result
         return self.step6.run(result)

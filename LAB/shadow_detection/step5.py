@@ -8,23 +8,23 @@ class Step5(object):
     def __init__(self):
         pass
 
-    def run(self, image, shadow_mask):
+    def run(self, image, dilated_shadow_mask, shadow_mask):
         #shadows = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 3), np.uint8)
 
-        b_region_masks, s_region_masks = self.get_region_masks(shadow_mask)
+        b_region_masks, s_region_masks = self.get_region_masks(dilated_shadow_mask)
 
         #recompute the shadow mask using all the region masks to avoid troubles with edges
-        shadow_mask = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 1), np.uint8)
+        dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1], 1), np.uint8)
 
         for region_mask in s_region_masks:
             region = self.apply_mask(image, region_mask)
             #shadows += region
-            shadow_mask += region_mask
+            dilated_shadow_mask += region_mask
 
         for region_mask in b_region_masks:
-            shadow_mask += region_mask
+            dilated_shadow_mask += region_mask
 
-        light_mask = 255 - shadow_mask
+        light_mask = 255 - dilated_shadow_mask
         lights = self.apply_mask(image, light_mask)
 
         result = image.copy()
