@@ -19,7 +19,7 @@ class ShadowDetectionPipeline(object):
         self.step5 = Step5()
         self.step6 = Step6()
 
-    def run(self, image):
+    def run(self, image, use_lab=False, iterations=1):
         lab_image = self.step1.run(image)
         mean_values = self.step2.run(lab_image)
         if mean_values[1] + mean_values[2] <= 256:
@@ -28,6 +28,8 @@ class ShadowDetectionPipeline(object):
             shadow_mask = self.step3B.run(lab_image)
 
         dilated_shadow_mask = self.step4.run(shadow_mask)
-        result = self.step5.run(image, dilated_shadow_mask, shadow_mask)
-        return result
-        return self.step6.run(result)
+        if use_lab:
+            image = self.step5.run(image, dilated_shadow_mask, shadow_mask, use_lab)
+        for i in range(iterations):
+            image = self.step5.run(image, dilated_shadow_mask, shadow_mask)
+        return image

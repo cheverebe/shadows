@@ -12,3 +12,6 @@ class Step1(object):
 
     def convert_to_lab(self, image):
         return cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+    def convert_to_bgr(self, image):
+        return cv2.cvtColor(image, cv2.COLOR_LAB2BGR)
