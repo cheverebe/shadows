@@ -28,8 +28,8 @@ def show_image(name, img):
 
 
 def show_and_save(param, name, ext, img, fact=1):
-    cv2.namedWindow(param, cv2.WINDOW_NORMAL)
-    cv2.imshow(param, img)
+    #cv2.namedWindow(param, cv2.WINDOW_NORMAL)
+    #cv2.imshow(param, img)
     cv2.imwrite(name + '_' + param + '.' + ext, img * fact)
 
 
