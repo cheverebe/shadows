@@ -44,16 +44,16 @@ class Step5(object):
             coef = self.get_coeficients(shadow_region_index, light_region_index, method=method)
             region_mask = self.sanitize_mask(region_mask, shadow_mask)
 
-            show_and_save(str(shadow_region_index)+"_A", "region", 'png', region)
+            #show_and_save(str(shadow_region_index)+"_A", "region", 'png', region)
 
             region = self.apply_coefficients(coef, region, method=method)
 
-            show_and_save(str(shadow_region_index)+"_B", "region", 'png', region)
+            #show_and_save(str(shadow_region_index)+"_B", "region", 'png', region)
 
             region = self.apply_mask(region, region_mask)
             no_region = 255 - region_mask
             result = self.apply_mask(result, no_region)
-            show_and_save(str(shadow_region_index)+"_C", "region", 'png', region)
+            #show_and_save(str(shadow_region_index)+"_C", "region", 'png', region)
             result += region
 
         return result
@@ -203,11 +203,12 @@ class Step5(object):
             elif method == 2:
                 start_idx = 0
                 end_idx = 2
-            diffs = [math.fabs(light_region_mean[i] - s_avg[j]) for j in range(start_idx, end_idx)]
-            new_dis = sum(diffs)
-            if new_dis < distance:
-                distance = new_dis
-                index = i
+            if sum([light_region_mean[j] for j in range(start_idx, end_idx)]) > 50:
+                diffs = [math.fabs(light_region_mean[j] - s_avg[j]) for j in range(start_idx, end_idx)]
+                new_dis = sum(diffs)
+                if new_dis < distance:
+                    distance = new_dis
+                    index = i
         return index
 
     def get_means(self, region, mask):
