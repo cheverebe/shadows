@@ -1,6 +1,7 @@
 # Dilate/Erode mask
 import cv2
 import numpy as np
+import time
 from LAB.shadow_detection.step1 import Step1
 import math
 from LAB.shadow_detection.utils import show_and_save
@@ -33,14 +34,14 @@ class Step5(object):
         light_mask = 255 - dilated_shadow_mask
         lights = self.apply_mask(image, light_mask)
         self.generate_light_regions(lights)
-        self.light_regions_means = self.calculate_light_regions_means(lights, method=method)
+        self.light_regions_means = self.calculate_light_regions_means(method=method)
 
         result = image.copy()
 
         for shadow_region_index in range(len(self.shadow_region_masks)):
             region = self.shadow_regions[shadow_region_index]
             region_mask = self.shadow_region_masks[shadow_region_index]
-            light_region_index = self.get_closest_region_index(region_mask, region, method=method)
+            light_region_index = self.get_closest_region_index(shadow_region_index, method=method)
             coef = self.get_coeficients(shadow_region_index, light_region_index, method=method)
             region_mask = self.sanitize_mask(region_mask, shadow_mask)
 
@@ -126,20 +127,29 @@ class Step5(object):
         msft = cv2.medianBlur(lights, 5)
         gray_msft = cv2.cvtColor(msft, cv2.COLOR_BGR2GRAY)
         self.light_region_masks, small_regions = self.get_region_masks(gray_msft)
-        for mask in self.light_region_masks:
-            self.light_regions.append(self.apply_mask(lights, mask))
+        valid_masks = []
+        for i in range(len(self.light_region_masks)):
+            mask = self.light_region_masks[i]
 
+            region = self.apply_mask(lights, mask)
+            valid_pixels = cv2.sumElems(mask/255)[0]
+            if valid_pixels > 1500:
+                self.light_regions.append(region)
+                valid_masks.append(mask)
+                show_and_save(str(i), "dbg_img/light_region", 'png', region)
+        self.light_region_masks = valid_masks
     # DEPRECATE!!!
-    def calculate_light_regions_means(self, lights, method=0):
+    def calculate_light_regions_means(self, method=0):
         #METHODS
         # 0 BGR
         # 1 LAB
         # 2 HSV
         means = []
-        for region_mask in self.light_region_masks:
-            lights = Step1().convert_to_lab(lights) if method == 1 else lights
-            lights = Step1().convert_to_hsv(lights) if method == 2 else lights
-            region = self.apply_mask(lights, region_mask)
+        for i in range(len(self.light_region_masks)):
+            region_mask = self.light_region_masks[i]
+            region = self.light_regions[i]
+            region = Step1().convert_to_lab(region) if method == 1 else region
+            region = Step1().convert_to_hsv(region) if method == 2 else region
             means.append(self.get_means(region, region_mask))
         return means
 
@@ -182,11 +192,14 @@ class Step5(object):
         shadows_means = self.get_means(shadows, shadow_mask)
         return [light_region_means[i] / shadows_means[i] for i in range(3)]
 
-    def get_closest_region_index(self, shadow_region_mask, shadow_region, method=0):
+    def get_closest_region_index(self, shadow_index, method=0):
         #METHODS
         # 0 BGR
         # 1 LAB
         # 2 HSV
+        ts = time.time()
+        shadow_region_mask = self.shadow_region_masks[shadow_index]
+        shadow_region = self.shadow_regions[shadow_index]
         shadow_region = Step1().convert_to_lab(shadow_region) if method == 1 else shadow_region
         shadow_region = Step1().convert_to_hsv(shadow_region) if method == 2 else shadow_region
         s_avg = self.get_means(shadow_region, shadow_region_mask)
@@ -197,18 +210,26 @@ class Step5(object):
             if method == 0:
                 start_idx = 0
                 end_idx = 3
+                mn_start = 0
+                mn_end = 3
             elif method == 1:
                 start_idx = 1
                 end_idx = 3
+                mn_start = 0
+                mn_end = 1
             elif method == 2:
                 start_idx = 0
                 end_idx = 2
-            if sum([light_region_mean[j] for j in range(start_idx, end_idx)]) > 50:
+                mn_start = 2
+                mn_end = 3
+            lrm = [light_region_mean[j] for j in range(mn_start, mn_end)]
+            if sum(lrm) > 50:
                 diffs = [math.fabs(light_region_mean[j] - s_avg[j]) for j in range(start_idx, end_idx)]
                 new_dis = sum(diffs)
                 if new_dis < distance:
                     distance = new_dis
                     index = i
+        print("%d -> %d" % (shadow_index, index))
         return index
 
     def get_means(self, region, mask):

@@ -13,7 +13,7 @@ class Runner(object):
         self.image_ext = 'png'
         self.image = load_image(self.image_name, self.image_ext)
         self.iterations = 1
-        self.methods = [1]
+        self.methods = [2]
 
     def run(self):
         image = self.image.copy()
