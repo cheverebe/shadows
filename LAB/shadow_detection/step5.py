@@ -45,16 +45,18 @@ class Step5(object):
             coef = self.get_coeficients(shadow_region_index, light_region_index, method=method)
             region_mask = self.sanitize_mask(region_mask, shadow_mask)
 
-            #show_and_save(str(shadow_region_index)+"_A", "region", 'png', region)
+            #show_and_save("", "dbg_img/shadow_mask", 'png', shadow_mask)
+            #show_and_save(str(shadow_region_index)+"_mask", "dbg_img/region", 'png', region_mask)
+            #show_and_save(str(shadow_region_index)+"_A", "dbg_img/region", 'png', region)
 
             region = self.apply_coefficients(coef, region, method=method)
 
-            #show_and_save(str(shadow_region_index)+"_B", "region", 'png', region)
+            #show_and_save(str(shadow_region_index)+"_B", "dbg_img/region", 'png', region)
 
             region = self.apply_mask(region, region_mask)
             no_region = 255 - region_mask
             result = self.apply_mask(result, no_region)
-            #show_and_save(str(shadow_region_index)+"_C", "region", 'png', region)
+            #show_and_save(str(shadow_region_index)+"_C", "dbg_img/region", 'png', region)
             result += region
 
         return result
@@ -136,7 +138,7 @@ class Step5(object):
             if valid_pixels > 1500:
                 self.light_regions.append(region)
                 valid_masks.append(mask)
-                show_and_save(str(i), "dbg_img/light_region", 'png', region)
+                #show_and_save(str(i), "dbg_img/light_region", 'png', region)
         self.light_region_masks = valid_masks
     # DEPRECATE!!!
     def calculate_light_regions_means(self, method=0):
