@@ -138,7 +138,7 @@ class Step5(object):
             if valid_pixels > 1500:
                 self.light_regions.append(region)
                 valid_masks.append(mask)
-                #show_and_save(str(i), "dbg_img/light_region", 'png', region)
+                show_and_save(str(i), "dbg_img/light_region", 'png', region)
         self.light_region_masks = valid_masks
     # DEPRECATE!!!
     def calculate_light_regions_means(self, method=0):
@@ -154,24 +154,6 @@ class Step5(object):
             region = Step1().convert_to_hsv(region) if method == 2 else region
             means.append(self.get_means(region, region_mask))
         return means
-
-    # DEPRECATE!!!
-    def get_best_coeficients(self, shadow_mask, shadows, use_lab=False):
-        lab_shadows = Step1().convert_to_lab(shadows) if use_lab else shadows
-        coefs = [1000, 1000, 1000]
-        distance = 100000000
-        for mean in self.light_regions_means:
-            s_avg = self.get_means(lab_shadows, shadow_mask)
-            if use_lab:
-                start_idx = 1
-            else:
-                start_idx = 0
-            diffs = [math.fabs(mean[i] - s_avg[i]) for i in range(start_idx, 3)]
-            new_dis = sum(diffs)
-            if new_dis < distance:
-                distance = new_dis
-                coefs = mean
-        return [coefs[i] / s_avg[i] for i in range(3)]
 
     def get_coeficients(self, shadow_region_index, light_region_index, method=0):
         #METHODS

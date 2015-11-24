@@ -1,8 +1,10 @@
 import numpy as np
 import cv2
+from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from invariant_image import get_invariant_l1_chrom_image, minimize_entropy, project_to_2d, log_chromaticity_image
 from settings import settings
-from utils import show_and_save, load_image, load_L1CI_image, equalize_hist_3d
+from utils import load_image
+from LAB.shadow_detection.utils import entropy, show_and_save, equalize_hist_3d, show_image
 
 
 def listener(angle=None):
@@ -11,22 +13,23 @@ def listener(angle=None):
     img = load_image(name, ext)
 
     (log_chrom, L1chrom) = log_chromaticity_image(img)
-
-    L1chrom = equalize_hist_3d(L1chrom)
-    show_and_save('L1_Chromacity', name, ext, L1chrom, 255)
+    #log_chrom = iig.log_chrom_image()
+    #show_and_save("chrom_image--old", 'log', 'png', equalize_hist_3d(np.array(log_chrom)))
 
     two_dim = project_to_2d(log_chrom)
 
-    if angle:
-        min_angle = angle
-    else:
-        (min_mono, min_angle) = minimize_entropy(two_dim, angle)
+    print(str(two_dim.shape))
+    (out_1, out_2) = cv2.split(two_dim)
+    #show_and_save("chrom_image--old", '2d_log_1', 'png', equalize_hist_3d(np.array(out_1)))
+    #show_and_save("chrom_image--old", '2d_log_2', 'png', equalize_hist_3d(np.array(out_2)))
 
-    print 'min angle: '+str(min_angle)
+    (min_mono, angle) = minimize_entropy(two_dim, angle)
 
-    log_chrom_inv = get_invariant_l1_chrom_image(two_dim,min_angle)
-    lci = np.array(log_chrom_inv)
-    show_and_save('L1_Chromacity_invariant', name, ext, lci, 255)
+    print 'min angle: '+str(angle)
+    show_and_save('invariant('+str(angle)+')', 'out/'+name, ext, equalize_hist_3d(np.array(min_mono)), 255)
+    #log_chrom_inv = get_invariant_l1_chrom_image(two_dim,min_angle)
+    #lci = np.array(log_chrom_inv)
+    #show_and_save('L1_Chromacity_invariant', name, ext, lci, 255)
 
     #-------------------------------------------
     cv2.waitKey(0)

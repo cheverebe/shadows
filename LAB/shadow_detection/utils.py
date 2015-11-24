@@ -59,11 +59,10 @@ def adapt_to_range(min_mono):
 
 
 def entropy(matrix):
-    mono_img = np.array(matrix)
-    min_val = mono_img.min()
-    max_val = mono_img.max()
+    min_val = matrix.min()
+    max_val = matrix.max()
     rango = max_val - min_val
-    coef = 1 / rango
+    coef = 1.0 / rango
 
     bins = 64
     sums = [0] * bins

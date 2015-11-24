@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import cv2
+from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from utils import entropy, get_extralight
 from settings import settings
 
@@ -27,34 +28,36 @@ def get_U():
     return np.matrix([[1.0/math.sqrt(2), -1.0/math.sqrt(2), 0], [1.0/math.sqrt(6), 1.0/math.sqrt(6), -2.0/math.sqrt(6)]])
 
 def project_to_2d(log_chrom):
-    U = get_U()
-    return [[np.array((U * np.matrix(elem).transpose())) for elem in row] for row in log_chrom]
-
+    #U = get_U()
+    #return [[np.array((U * np.matrix(elem).transpose())) for elem in row] for row in log_chrom]
+    iig = InvariantImageGenerator()
+    return iig.project_to_2d(log_chrom)
 
 def log_chromaticity_image(img):
+    iig = InvariantImageGenerator()
 
     height = img.shape[0]
     width = img.shape[1]
     depth = img.shape[2]
 
+    img = iig.limit_image(img)
     log_chrom = [[[0, 0, 0] for j in range(width)] for j in range(height)]
-    L1chrom = [[[0, 0, 0] for j in range(width)] for j in range(height)]
 
     #GENERATE LOG CHROMATICITY IMAGE
     if depth == 3:
         for j in xrange(height):
             for i in xrange(width):
                 b = img[j][i][0]
-                if b < 10: b= 10
-                if b > 245: b= 245
+                #if b < 10: b= 10
+                #if b > 245: b= 245
 
                 g = img[j][i][1]
-                if g < 10: g= 10
-                if g > 245: g= 245
+                #if g < 10: g= 10
+                #if g > 245: g= 245
 
                 r = img[j][i][2]
-                if r < 10: r= 10
-                if r > 245: r= 245
+                #if r < 10: r= 10
+                #if r > 245: r= 245
 
                 prod = float(r)*g*b
                 geometric_mean = math.pow(prod, 1/3)
@@ -64,15 +67,12 @@ def log_chromaticity_image(img):
                 log_chrom[j][i][0] = math.log(c_1)
                 log_chrom[j][i][1] = math.log(c_2)
                 log_chrom[j][i][2] = math.log(c_3)
-                L1chrom[j][i][0] = c_1 / (c_1 + c_2 + c_3)
-                L1chrom[j][i][1] = c_2 / (c_1 + c_2 + c_3)
-                L1chrom[j][i][2] = c_3 / (c_1 + c_2 + c_3)
 
     log_chrom = np.array(log_chrom)
-    L1chrom = np.array(L1chrom)
-    return log_chrom, L1chrom
+    return log_chrom, None
 
 def minimize_entropy(two_dim, angle=None):
+    iig = InvariantImageGenerator()
     # FIND MIN ANGLE
     min_entropy = 0
     min_mono = []
@@ -88,7 +88,8 @@ def minimize_entropy(two_dim, angle=None):
     for angle in angles:
         print str(angle)
         rad = math.radians(angle)
-        mono = [[elem[0]*math.cos(rad)+elem[1]*math.sin(rad) for elem in row] for row in two_dim]
+        #mono = [[elem[0]*math.cos(rad)+elem[1]*math.sin(rad) for elem in row] for row in two_dim]
+        mono = iig.project_into_one_d(two_dim, angle)
         ent = entropy(mono)
         entropy_array.append(ent)
         if min_angle == 0 or ent < min_entropy:
