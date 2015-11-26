@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import math
+from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 
 
 def equalize_hist_3d(img):
@@ -59,6 +60,8 @@ def adapt_to_range(min_mono):
 
 
 def entropy(matrix):
+    iig = InvariantImageGenerator()
+    return iig.calculate_entropy(matrix)
     mono_img = np.array(matrix)
     min_val = mono_img.min()
     max_val = mono_img.max()

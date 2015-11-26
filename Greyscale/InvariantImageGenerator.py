@@ -120,4 +120,13 @@ class InvariantImageGenerator(object):
         return r1 + r2
 
     def calculate_entropy(self, mono):
-        return entropy(mono)
+        #return entropy(mono)
+        bins = 64
+        frame = equalize_hist_3d(mono)
+        #hist = cv2.calcHist([mono], [0], None, [bins], [0, 256])
+        histogram = np.histogram(frame, bins=256)[0]
+        histogram_length = sum(histogram)
+        samples_probability = [float(h) / histogram_length for h in histogram]
+        entropy = -sum([p * math.log(p, 2) for p in samples_probability if p != 0])
+
+        return entropy

@@ -1,7 +1,7 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'sh1',
+    'name': 'road3',
     'extension': 'png',
     'predefined_angle': None
 }
