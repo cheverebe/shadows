@@ -4,11 +4,11 @@ import os
 
 class Runner(object):
     def __init__(self):
-        self.image_name = 'img/madera'
+        self.image_name = 'img/forest2'
         print(os.listdir("img")[5])
 
         self.invarianGenerator = None
-        self.image_ext = 'png'
+        self.image_ext = 'jpg'
         self.image = load_image(self.image_name, self.image_ext)
 
     def run(self):

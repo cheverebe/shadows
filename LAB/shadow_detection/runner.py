@@ -6,12 +6,13 @@ from utils import show_and_save
 
 class Runner(object):
     def __init__(self):
-        self.image_name = '../../img/madera'
+        self.image_name = '../../img/forest2'
         #self.image_name = '../../img/datasets/data_long_term/2009.09.08/data1/A_001_008.40_surfnav'
 
         self.pipeline = None
-        self.image_ext = 'png'
+        self.image_ext = 'jpg'
         self.image = load_image(self.image_name, self.image_ext)
+        show_and_save("", self.image_name, 'png', self.image)
         self.iterations = 1
         self.methods = [[1], [0], [2]]
 

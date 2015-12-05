@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import math
-from LAB.shadow_detection.utils import entropy, show_and_save, equalize_hist_3d, show_image
+from LAB.shadow_detection.utils import show_and_save, equalize_hist_3d
 
 
 class InvariantImageGenerator(object):
@@ -40,22 +40,17 @@ class InvariantImageGenerator(object):
         image = self.limit_image(image)
         (b_channel, g_channel, r_channel) = cv2.split(image)
 
-        #b_channel = self.limit_image(b_channel)
-        #g_channel = self.limit_image(g_channel)
-        #r_channel = self.limit_image(r_channel)
-
-        prod = cv2.multiply(b_channel, g_channel)
-        prod = cv2.multiply(prod, r_channel)
-        prod = np.float32(prod)
-        sqrt = cv2.sqrt(prod)
-
         b_channel = np.float32(b_channel)
         g_channel = np.float32(g_channel)
         r_channel = np.float32(r_channel)
 
-        b_channel = cv2.divide(b_channel, sqrt)
-        g_channel = cv2.divide(g_channel, sqrt)
-        r_channel = cv2.divide(r_channel, sqrt)
+        prod = cv2.multiply(b_channel, g_channel)
+        prod = cv2.multiply(prod, r_channel)
+        cbrt = cv2.pow(prod, 1.0/3)
+
+        b_channel = cv2.divide(b_channel, cbrt)
+        g_channel = cv2.divide(g_channel, cbrt)
+        r_channel = cv2.divide(r_channel, cbrt)
 
         b_channel = cv2.log(b_channel)
         g_channel = cv2.log(g_channel)
@@ -107,12 +102,9 @@ class InvariantImageGenerator(object):
         A = cv2.merge([out_1, out_2])
         return A
 
-    def project_into_one_d(self, two_dim_log_chrom, angle):
-        #two_dim_log_chrom = two_dim_log_chrom.reshape(two_dim_log_chrom.shape[:-1])
+    @staticmethod
+    def project_into_one_d(two_dim_log_chrom, angle):
         rad = math.radians(angle)
-        #a = np.array([math.cos(rad), math.sin(rad)])
-        #mono = two_dim_log_chrom * a.transpose()
-        #(a, b) = cv2.split(mono)
 
         (d1, d2) = cv2.split(two_dim_log_chrom)
         r1 = d1 * math.cos(rad)
@@ -121,10 +113,9 @@ class InvariantImageGenerator(object):
 
     def calculate_entropy(self, mono):
         #return entropy(mono)
-        bins = 64
         frame = equalize_hist_3d(mono)
         #hist = cv2.calcHist([mono], [0], None, [bins], [0, 256])
-        histogram = np.histogram(frame, bins=256)[0]
+        histogram = np.histogram(frame, bins=64)[0]
         histogram_length = sum(histogram)
         samples_probability = [float(h) / histogram_length for h in histogram]
         entropy = -sum([p * math.log(p, 2) for p in samples_probability if p != 0])
