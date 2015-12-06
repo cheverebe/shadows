@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
+from boudary_drawer import draw_boundaries
 from invariant_image import minimize_entropy, project_to_2d, log_chromaticity_image, project_into_1d
+from path_finder import find_path
 from settings import settings
 from utils import load_image
 from LAB.shadow_detection.utils import show_and_save, equalize_hist_3d
@@ -16,14 +18,24 @@ def listener(angle=None):
     two_dim = project_to_2d(log_chrom)
 
     if not angle:
-        (min_mono, angle) = minimize_entropy(two_dim, None, name)
+        (inv_mono, angle) = minimize_entropy(two_dim, None, name)
     else:
-        min_mono = project_into_1d(two_dim, angle)
+        inv_mono = project_into_1d(two_dim, angle)
 
     print 'min angle: '+str(angle)
-    show_and_save('invariant('+str(angle)+')', 'out/'+name, ext, equalize_hist_3d(np.array(min_mono)))
+    eq_inv_mono = equalize_hist_3d(inv_mono)
+    show_and_save('invariant('+str(angle)+')', 'out/'+name, ext, eq_inv_mono)
 
-    #-------------------------------------------
+    b_eq_inv_mono = cv2.blur(eq_inv_mono, settings['ksize'])
+    show_and_save('invariant_blur('+str(angle)+')', 'out/'+name, ext, b_eq_inv_mono)
+
+    path_mask = find_path(b_eq_inv_mono)
+    show_and_save('path('+str(angle)+')', 'out/'+name, ext, path_mask)
+
+    edged = draw_boundaries(img, path_mask)
+    show_and_save('edges('+str(angle)+')', 'out/'+name, ext, edged)
+
+#-------------------------------------------
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

@@ -18,9 +18,6 @@ class InvariantImageGenerator(object):
             print(angle)
             one_d_projected_grayscale = self.project_into_one_d(two_dim_log_chrom, angle)
 
-            #show_and_save("o1", 'madera', 'png', equalize_hist_3d(one_d_projected_grayscale))
-            #show_and_save("o2", 'madera', 'png', o2)
-            #show_image("img", one_d_projected_grayscale)
             entropy = self.calculate_entropy(one_d_projected_grayscale)
             if entropy < min_entropy or min_entropy == -1:
                 min_entropy = entropy
@@ -88,7 +85,6 @@ class InvariantImageGenerator(object):
 
     def project_to_2d(self, log_chrom):
         U = self.get_U()
-        #B = [[np.array((U * np.matrix(elem).transpose())) for elem in row] for row in log_chrom]
         U1 = self.get_U_1()
         U2 = self.get_U_2()
         out_1 = U1 * log_chrom
@@ -97,8 +93,6 @@ class InvariantImageGenerator(object):
         out_1 = c1 + c2 + c3
         (c1, c2, c3) = cv2.split(out_2)
         out_2 = c1 + c2 + c3
-        #show_and_save("chrom_image", '2d_log_1', 'png', equalize_hist_3d(np.array(out_1)))
-        #show_and_save("chrom_image", '2d_log_2', 'png', equalize_hist_3d(np.array(out_2)))
         A = cv2.merge([out_1, out_2])
         return A
 

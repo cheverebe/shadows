@@ -3,7 +3,9 @@ __author__ = 'cheverebe'
 settings = {
     'name': 'ale3',
     'extension': 'png',
-    'predefined_angle': 148
+    'predefined_angle': 148,
+    'tolerance': 4,
+    'ksize': (7, 7)
 }
 
 # BALCON - min angle found: 151
