@@ -2,7 +2,6 @@ import numpy as np
 import math
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
-from LAB.shadow_detection.utils import show_and_save
 from utils import entropy, get_extralight, equalize_hist_3d
 
 
@@ -34,33 +33,6 @@ def project_to_2d(log_chrom):
 def log_chromaticity_image(img):
     iig = InvariantImageGenerator()
     return iig.log_chrom_image(img)
-    height = img.shape[0]
-    width = img.shape[1]
-    depth = img.shape[2]
-
-    img = iig.limit_image(img)
-
-    log_chrom = [[[0, 0, 0] for j in range(width)] for j in range(height)]
-
-    #GENERATE LOG CHROMATICITY IMAGE
-    if depth == 3:
-        for j in xrange(height):
-            for i in xrange(width):
-                b = img[j][i][0]
-                g = img[j][i][1]
-                r = img[j][i][2]
-
-                prod = float(r)*g*b
-                geometric_mean = math.pow(prod, 1.0/3)
-                c_1 = float(b) / geometric_mean
-                c_2 = float(g) / geometric_mean
-                c_3 = float(r) / geometric_mean
-                log_chrom[j][i][0] = math.log(c_1)
-                log_chrom[j][i][1] = math.log(c_2)
-                log_chrom[j][i][2] = math.log(c_3)
-
-    log_chrom = np.array(log_chrom)
-    return log_chrom
 
 def plot_entropies(angles, ent_list):
     # plt.rcParams['axes.unicode_minus'] = False

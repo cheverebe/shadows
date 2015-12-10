@@ -29,7 +29,11 @@ def find_path(img):
     lower_limit = path_tone - tolerance
     path_mask = generate_threshhold_mask(img, lower_limit, upper_limit)
 
-    kernel = np.ones((5, 5), np.uint8)
-    dilated_shadow_mask = cv2.dilate(path_mask, kernel, iterations=1)
-    path_mask = cv2.erode(dilated_shadow_mask, kernel, iterations=1)
+    kernel = np.ones(settings['ksize'], np.uint8)
+
+    eroded_mask = cv2.erode(path_mask, kernel, iterations=3)
+    path_mask = cv2.dilate(eroded_mask, kernel, iterations=3)
+
+    #dilated_shadow_mask = cv2.dilate(path_mask, kernel, iterations=1)
+    #path_mask = cv2.erode(dilated_shadow_mask, kernel, iterations=1)
     return path_mask
