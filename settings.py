@@ -1,11 +1,13 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'road3',
+    'name': 'forest2',
     'extension': 'png',
-    'predefined_angle': 154,
+    'predefined_angle': 10,
     'tolerance': 7,
-    'ksize': (50, 10)
+    #'ksize': (50, 10),
+    'dil_erod_kernel_size': (15, 15),
+    'blur_kernel_size': (40, 40)
 }
 
 # BALCON - min angle found: 151

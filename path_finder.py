@@ -2,12 +2,19 @@ import cv2
 import numpy as np
 from settings import settings
 
+def get_roi_corners(shape):
+    center = shape[1] / 2
+    roi_radius = 20
+    return (shape[0]-roi_radius+2, shape[0], center-roi_radius, center+roi_radius)
+
+def get_roi(img):
+    s = img.shape
+    corners = get_roi_corners(s)
+    roi = img[corners[0]:corners[1], corners[2]:corners[3]]
+    return roi
 
 def find_path_tone(img):
-    s = img.shape
-    center = s[1] / 2
-    roi_radius = 20
-    roi = img[s[0]-roi_radius+2:s[0], center-roi_radius:center+roi_radius]
+    roi = get_roi(img)
     mean = cv2.mean(roi)[0]
     print "mean:" + str(mean)
     return int(mean)
@@ -29,7 +36,7 @@ def find_path(img):
     lower_limit = path_tone - tolerance
     path_mask = generate_threshhold_mask(img, lower_limit, upper_limit)
 
-    kernel = np.ones(settings['ksize'], np.uint8)
+    kernel = np.ones(settings['dil_erod_kernel_size'], np.uint8)
 
     eroded_mask = cv2.erode(path_mask, kernel, iterations=3)
     path_mask = cv2.dilate(eroded_mask, kernel, iterations=3)
