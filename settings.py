@@ -3,7 +3,7 @@ __author__ = 'cheverebe'
 settings = {
     'name': 'forest2',
     'extension': 'png',
-    'predefined_angle': 10,
+    'predefined_angle': None,
     'tolerance': 7,
     #'ksize': (50, 10),
     'dil_erod_kernel_size': (15, 15),

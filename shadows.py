@@ -1,7 +1,8 @@
 import numpy as np
 import cv2
 from boudary_drawer import draw_boundaries
-from invariant_image import minimize_entropy, project_to_2d, log_chromaticity_image, project_into_1d
+from invariant_image import minimize_entropy, project_to_2d, log_chromaticity_image, project_into_1d, \
+    find_invariant_image
 from path_finder import find_path, get_roi_corners
 from settings import settings
 from utils import load_image
@@ -18,7 +19,7 @@ def listener(angle=None):
     two_dim = project_to_2d(log_chrom)
 
     if not angle:
-        (inv_mono, angle) = minimize_entropy(two_dim, None, name)
+        (inv_mono, angle) = find_invariant_image(img, two_dim)
     else:
         inv_mono = project_into_1d(two_dim, angle)
 

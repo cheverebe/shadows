@@ -2,6 +2,7 @@ import numpy as np
 import math
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
+from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
 from utils import entropy, get_extralight, equalize_hist_3d
 
 
@@ -44,6 +45,19 @@ def plot_entropies(angles, ent_list):
     # plt.savefig('img/out/plot.png')
     print angles
     print ent_list
+
+def find_invariant_image(original, two_dim):
+    pip = ShadowDetectionPipeline()
+    dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
+
+    cv2.namedWindow("dilated_shadow_mask", cv2.WINDOW_NORMAL)
+    cv2.imshow('dilated_shadow_mask', dilated_shadow_mask)
+
+    cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
+    cv2.imshow('shadow_mask', shadow_mask)
+
+    min_mono, min_angle = minimize_entropy(two_dim)
+    return min_mono, min_angle
 
 def minimize_entropy(two_dim, angle=None, name=None):
     iig = InvariantImageGenerator()
