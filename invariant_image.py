@@ -50,14 +50,43 @@ def find_invariant_image(original, two_dim):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
 
-    cv2.namedWindow("dilated_shadow_mask", cv2.WINDOW_NORMAL)
-    cv2.imshow('dilated_shadow_mask', dilated_shadow_mask)
-
     cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
     cv2.imshow('shadow_mask', shadow_mask)
+    iig = InvariantImageGenerator()
+    # FIND MIN ANGLE
+    min_entropy = 0
+    min_mono = []
+    entropy_array = []
 
-    min_mono, min_angle = minimize_entropy(two_dim)
+    #----AUX DATA
+    light_mask = 255 - shadow_mask
+    shadow_pixels_count = cv2.sumElems(shadow_mask/255)[0]
+    light_pixels_count = cv2.sumElems(light_mask/255)[0]
+
+    angles = xrange(0, 180)
+    min_angle = 0   #hack horriible
+    min_distance = -1
+
+    ent_list = []
+    for angle in angles:
+        mono = iig.project_into_one_d(two_dim, angle)
+
+        light_pixels = cv2.bitwise_and(np.uint8(mono), np.uint8(light_mask))
+        light_mean = cv2.sumElems(light_pixels)[0]/light_pixels_count
+
+        shadow_pixels = cv2.bitwise_and(np.uint8(mono), np.uint8(shadow_mask))
+        shadow_mean = cv2.sumElems(shadow_pixels)[0]/shadow_pixels_count
+
+        distance = abs(light_mean - shadow_mean)
+
+        print str("%d, %f" % (angle, distance))
+        if min_distance == -1 or distance < min_distance:
+            min_distance = distance
+            min_mono = mono
+            min_angle = angle
+
     return min_mono, min_angle
+
 
 def minimize_entropy(two_dim, angle=None, name=None):
     iig = InvariantImageGenerator()
