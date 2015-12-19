@@ -2,6 +2,7 @@ import numpy as np
 import math
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
+from Greyscale.distancefinder import DistanceFinder
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
 from utils import entropy, get_extralight, equalize_hist_3d
 
@@ -49,6 +50,7 @@ def plot_entropies(angles, ent_list):
 def find_invariant_image(original, two_dim):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
+    dist_finder = DistanceFinder(original, dilated_shadow_mask)
 
     cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
     cv2.imshow('shadow_mask', shadow_mask)
@@ -71,13 +73,15 @@ def find_invariant_image(original, two_dim):
     for angle in angles:
         mono = iig.project_into_one_d(two_dim, angle)
 
-        light_pixels = cv2.bitwise_and(np.uint8(mono), np.uint8(light_mask))
-        light_mean = cv2.sumElems(light_pixels)[0]/light_pixels_count
+        #light_pixels = cv2.bitwise_and(np.float64(mono), np.float64(light_mask))
+        #light_mean = cv2.sumElems(light_pixels)[0]/light_pixels_count
 
-        shadow_pixels = cv2.bitwise_and(np.uint8(mono), np.uint8(shadow_mask))
-        shadow_mean = cv2.sumElems(shadow_pixels)[0]/shadow_pixels_count
+        #shadow_pixels = cv2.bitwise_and(np.float64(mono), np.float64(shadow_mask))
+        #shadow_mean = cv2.sumElems(shadow_pixels)[0]/shadow_pixels_count
 
-        distance = abs(light_mean - shadow_mean)
+        #distance = abs(light_mean - shadow_mean)
+
+        distance = dist_finder.run(np.float64(mono))
 
         print str("%d, %f" % (angle, distance))
         if min_distance == -1 or distance < min_distance:
