@@ -216,3 +216,21 @@ class DistanceFinder(object):
 
     def get_means(self, region, mask):
         return [sm / cv2.sumElems(mask/255)[0] for sm in cv2.sumElems(region)]
+
+    def print_region_matches(self, printer):
+        for shadow_index in range(len(self.shadow_regions)):
+            light_index = self.get_closest_region_index(shadow_index)
+            shadow = self.shadow_regions[shadow_index]
+            light = self.light_regions[light_index]
+            out = np.concatenate((shadow, light), axis=1)
+            printer(shadow_index, out)
+
+    def print_light_regions(self, printer):
+        for light_index in range(len(self.light_regions)):
+            light = self.light_regions[light_index]
+            printer(light_index, light)
+
+    def print_shadow_regions(self, printer):
+        for shadow_index in range(len(self.shadow_regions)):
+            shadow = self.shadow_regions[shadow_index]
+            printer(shadow_index, shadow)

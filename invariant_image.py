@@ -4,6 +4,7 @@ import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from Greyscale.distancefinder import DistanceFinder
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
+from LAB.shadow_detection.utils import show_and_save
 from utils import entropy, get_extralight, equalize_hist_3d
 
 
@@ -47,10 +48,10 @@ def plot_entropies(angles, ent_list):
     print angles
     print ent_list
 
-def find_invariant_image(original, two_dim):
+def find_invariant_image(original, two_dim, name):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
-    dist_finder = DistanceFinder(original, dilated_shadow_mask)
+    dist_finder = DistanceFinder(original, dilated_shadow_mask, 0)
 
     cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
     cv2.imshow('shadow_mask', shadow_mask)
@@ -68,6 +69,13 @@ def find_invariant_image(original, two_dim):
     angles = xrange(0, 180)
     min_angle = 0   #hack horriible
     min_distance = -1
+
+    printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_region_matches(printer)
+    printer = lambda index, image: show_and_save('shadow('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_shadow_regions(printer)
+    printer = lambda index, image: show_and_save('light('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_light_regions(printer)
 
     ent_list = []
     for angle in angles:

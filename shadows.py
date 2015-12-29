@@ -19,7 +19,7 @@ def listener(angle=None):
     two_dim = project_to_2d(log_chrom)
 
     if not angle:
-        (inv_mono, angle) = find_invariant_image(img, two_dim)
+        (inv_mono, angle) = find_invariant_image(img, two_dim, name)
     else:
         inv_mono = project_into_1d(two_dim, angle)
 

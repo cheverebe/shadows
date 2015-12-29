@@ -1,7 +1,7 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'r1',
+    'name': 'ale1',
     'extension': 'png',
     'predefined_angle': None,
     'tolerance': 7,
@@ -20,7 +20,7 @@ settings = {
 # auto: 148
 # balcon: 149
 # bird: 148
-# forest1: 97(148)
+# forest1: 97, 107(148)
 # forest2: 67-120(10??? NONE)
 # kitti: 130(148)
 # madera: 139(any)
