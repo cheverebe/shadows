@@ -53,6 +53,13 @@ def find_invariant_image(original, two_dim, name):
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
     dist_finder = DistanceFinder(original, dilated_shadow_mask, 0)
 
+    printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_region_matches(printer)
+    printer = lambda index, image: show_and_save('shadow('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_shadow_regions(printer)
+    printer = lambda index, image: show_and_save('light('+str(index)+')', 'out/'+name, 'png', image)
+    dist_finder.print_light_regions(printer)
+
     cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
     cv2.imshow('shadow_mask', shadow_mask)
     iig = InvariantImageGenerator()
@@ -70,12 +77,6 @@ def find_invariant_image(original, two_dim, name):
     min_angle = 0   #hack horriible
     min_distance = -1
 
-    printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_region_matches(printer)
-    printer = lambda index, image: show_and_save('shadow('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_shadow_regions(printer)
-    printer = lambda index, image: show_and_save('light('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_light_regions(printer)
 
     ent_list = []
     for angle in angles:

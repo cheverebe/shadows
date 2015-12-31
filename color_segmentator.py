@@ -83,7 +83,7 @@ class ColorSegmentator(object):
 
         return big_regions
 
-    def segment_image(self, img=cv2.imread('img/road6.png')):
+    def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         hist = cv2.calcHist([hsv_img], [0], None, [256], [0,256])
 
@@ -97,13 +97,13 @@ class ColorSegmentator(object):
         # plt.plot(smooth_msft_hist, color='g')
 
         hist_peaks = self.peaks(smooth_msft_hist)
-        print(hist_peaks)
-
-        cv2.imshow('img', img)
+        if show:
+            print(hist_peaks)
+            cv2.imshow('img', img)
         h = cv2.split(hsv_img)[0]
 
         kernel_1 = np.ones((2,2), np.uint8)
-        kernel_2 = np.ones((5,5), np.uint8)
+        kernel_2 = np.ones(settings['dil_erod_kernel_size_segmentator'], np.uint8)
 
         result = []
         for i in range(len(hist_peaks)-1):
@@ -113,19 +113,17 @@ class ColorSegmentator(object):
             mask = cv2.erode(mask, kernel_2, iterations=3)
             mask = cv2.dilate(mask, kernel_2, iterations=3)
 
+            shape = mask.shape
+            shape = [shape[0], shape[1]]
             submasks = self.get_region_masks(mask)
-            j=0
-            result += submasks
-            for submask in submasks:
+            result += [submask.reshape(shape) for submask in submasks]
 
-                cv2.imshow('mask_'+str(i)+"_"+str(j), self.apply_mask(img,submask))
-                j+=1
+            if show:
+                j = 0
+                for submask in submasks:
+                    cv2.imshow('mask_'+str(i)+"_"+str(j), self.apply_mask(img,submask))
+                    j += 1
 
         # plt.show()
 
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
         return result
-
-ColorSegmentator().segment_image()

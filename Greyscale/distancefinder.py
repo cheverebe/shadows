@@ -5,6 +5,8 @@ import time
 from LAB.shadow_detection.step1 import Step1
 import math
 from LAB.shadow_detection.utils import show_and_save
+from color_segmentator import ColorSegmentator
+from settings import settings
 
 
 class DistanceFinder(object):
@@ -17,10 +19,12 @@ class DistanceFinder(object):
         self.light_regions_means = []
         self.dilated_shadows_mask = dilated_shadow_mask
 
+        self.color_region_masks = ColorSegmentator().segment_image(image)
+
         self.shadow_region_masks, self.small_shadow_region_masks = self.get_region_masks(dilated_shadow_mask)
 
         #recompute the shadow mask using all the region masks to avoid troubles with edges
-        dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1], 1), np.uint8)
+        dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1]), np.uint8)
 
         for region_mask in self.small_shadow_region_masks:
             dilated_shadow_mask += region_mask
@@ -100,14 +104,18 @@ class DistanceFinder(object):
         big_regions = []
         small_regions = []
 
+        min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / settings['min_size_factor']
+
         for i in range(len(contours)):
             blank = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 1), np.uint8)
             region_mask = cv2.drawContours(blank, contours, i, 255, -1)
-            s = cv2.sumElems(region_mask/255)[0]
-            if s > 700:
-                big_regions.append(region_mask)
-            else:
-                small_regions.append(region_mask)
+            for color_mask in self.color_region_masks:
+                subregion = self.apply_multi_mask(region_mask,color_mask)
+                s = cv2.sumElems(subregion/255)[0]
+                if s > min_size:
+                    big_regions.append(subregion)
+                else:
+                    small_regions.append(subregion)
 
         return big_regions, small_regions
 
@@ -123,12 +131,14 @@ class DistanceFinder(object):
         big_regions_masks, small_regions = self.get_region_masks(gray_msft)
         light_regions = []
         valid_masks = []
+
+        min_size = lights.shape[0] * lights.shape[1] / 20
         for i in range(len(big_regions_masks)):
             mask = big_regions_masks[i]
 
             region = self.apply_mask(lights, mask) if is_color else self.apply_multi_mask(lights, mask)
             valid_pixels = cv2.sumElems(mask/255)[0]
-            if valid_pixels > 1500:
+            if valid_pixels > min_size:
                 light_regions.append(region)
                 valid_masks.append(mask)
                 #show_and_save(str(i), "dbg_img/light_region", 'png', region)

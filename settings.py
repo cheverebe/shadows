@@ -1,13 +1,15 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'ale1',
+    'name': 'road5',
     'extension': 'png',
     'predefined_angle': None,
     'tolerance': 7,
     #'ksize': (50, 10),
     'dil_erod_kernel_size': (10, 10),
-    'blur_kernel_size': (5, 5)
+    'blur_kernel_size': (5, 5),
+    'min_size_factor': 30,
+    'dil_erod_kernel_size_segmentator': (8, 8),
 }
 
 # BALCON - min angle found: 151
