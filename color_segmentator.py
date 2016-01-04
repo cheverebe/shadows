@@ -71,7 +71,7 @@ class ColorSegmentator(object):
         image, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         big_regions = []
 
-        min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / 20
+        min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / settings['min_size_factor']
 
         for i in range(len(contours)):
             blank = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 1), np.uint8)
