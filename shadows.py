@@ -35,8 +35,8 @@ def listener(angle=None):
 
     edged = draw_boundaries(img, path_mask)
     roi_corners = get_roi_corners(edged.shape)
-    print((roi_corners[0],roi_corners[2]), (roi_corners[1],roi_corners[3]))
-    edged_w_roi = cv2.rectangle(edged, (roi_corners[0],roi_corners[2]), (roi_corners[1],roi_corners[3]), (0,0,255))
+    print((roi_corners[0],roi_corners[1]), (roi_corners[2],roi_corners[3]))
+    edged_w_roi = cv2.rectangle(edged, (roi_corners[0],roi_corners[2]), (roi_corners[1],roi_corners[3]), (0,255,0))
     show_and_save('edges('+str(angle)+')', 'out/'+name, ext, edged_w_roi)
 
 #-------------------------------------------

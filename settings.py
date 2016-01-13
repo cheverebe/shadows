@@ -1,7 +1,7 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'ale1',
+    'name': 'r1',
     'extension': 'png',
     'predefined_angle': None,
     'tolerance': 7,
@@ -10,15 +10,23 @@ settings = {
     'min_size_factor': 30,
     'dil_erod_kernel_size': (8, 8),
     'dil_erod_kernel_size_segmentator': (8, 8),
+    'region_distance_balance': 0.8,  # color/spatial,
+    'max_color_dist': 0.2,  # color/spatial,
+    #METHODS
+    # 0 BGR
+    # 1 LAB
+    # 2 HSV
+    'method': 2
+
 }
 
 # BALCON - min angle found: 151
 # PELOTA - min angle found: 109
 #cono 166
 #palmeras 124
-# ale1: 97, 115(148)
-# ale2: 154, 179
-# ale3: 148, 175
+# ale1: 97, 115(148) / 150
+# ale2: 154, 179 / 123
+# ale3: 148, 175 /
 # auto: 148
 # balcon: 149
 # bird: 148

@@ -5,6 +5,7 @@ from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from Greyscale.distancefinder import DistanceFinder
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
 from LAB.shadow_detection.utils import show_and_save
+from settings import settings
 from utils import entropy, get_extralight, equalize_hist_3d
 
 
@@ -51,7 +52,7 @@ def plot_entropies(angles, ent_list):
 def find_invariant_image(original, two_dim, name):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
-    dist_finder = DistanceFinder(original, dilated_shadow_mask, 0)
+    dist_finder = DistanceFinder(original, dilated_shadow_mask, settings['method'])
 
     printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
     dist_finder.print_region_matches(printer)
@@ -92,7 +93,7 @@ def find_invariant_image(original, two_dim, name):
 
         distance = dist_finder.run(np.float64(mono))
 
-        print str("%d, %f" % (angle, distance))
+        print str("%d, %s" % (angle, repr(distance)))
         if min_distance == -1 or distance < min_distance:
             min_distance = distance
             min_mono = mono

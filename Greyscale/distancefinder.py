@@ -7,11 +7,14 @@ import math
 from LAB.shadow_detection.utils import show_and_save
 from color_segmentator import ColorSegmentator
 from settings import settings
+from LAB.shadow_detection.utils import equalize_hist_3d
 
 
 class DistanceFinder(object):
     def __init__(self, image, dilated_shadow_mask, method=0):
+        self.method = method
         self.shadow_regions = []
+        self.shadow_centroids = []
         self.shadow_region_masks = []
         self.shadow_regions_means = []
         self.light_regions = []
@@ -21,12 +24,17 @@ class DistanceFinder(object):
 
         self.color_region_masks = ColorSegmentator().segment_image(image)
 
-        self.shadow_region_masks, self.small_shadow_region_masks = self.get_region_masks(dilated_shadow_mask)
+        self.shadow_region_masks, \
+        small_shadow_region_masks, \
+        self.shadow_centroids, \
+        small_centroids= \
+            self.get_region_masks(dilated_shadow_mask)
 
         #recompute the shadow mask using all the region masks to avoid troubles with edges
-        dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1]), np.uint8)
+        dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1]),
+                                       np.uint8)
 
-        for region_mask in self.small_shadow_region_masks:
+        for region_mask in small_shadow_region_masks:
             dilated_shadow_mask += region_mask
 
         for region_mask in self.shadow_region_masks:
@@ -37,9 +45,10 @@ class DistanceFinder(object):
 
         light_mask = 255 - dilated_shadow_mask
         lights = self.apply_mask(image, light_mask)
-        self.light_region_masks, self.light_regions = self.generate_regions(lights)
-        self.light_regions_means = self.calculate_light_regions_means(method=method)
-        self.shadow_regions_means = self.calculate_shadow_regions_means(method=method)
+        self.light_region_masks, self.light_regions,\
+           self.light_centroids = self.generate_regions(lights)
+        self.light_regions_means = self.calculate_light_regions_means(method=self.method)
+        self.shadow_regions_means = self.calculate_shadow_regions_means(method=self.method)
 
         #mono image regions initialization
 
@@ -48,18 +57,30 @@ class DistanceFinder(object):
         self.mono_light_regions = []
         self.mono_light_regions_means = []
 
-    def run(self, mono_image, method=0):
-        self.mono_light_regions = [self.apply_multi_mask(mono_image, np.float64(light_region_mask)) for light_region_mask in self.light_region_masks]
-        self.mono_shadow_regions = [self.apply_multi_mask(mono_image, np.float64(shadow_region_mask)) for shadow_region_mask in self.shadow_region_masks]
+        # to standarize spatial distance
+        self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1/2.0)
+        self.matches = [self.get_closest_region_index(shadow_region_index, method=self.method)
+                        for shadow_region_index in range(len(self.shadow_regions))]
 
-        self.mono_light_regions_means = self.calculate_regions_means(self.light_region_masks, self.mono_light_regions, method)
-        self.mono_shadow_regions_means = self.calculate_regions_means(self.shadow_region_masks, self.mono_shadow_regions, method)
+    def run(self, mono_image):
+        #todo: check if necessary
+        mono_image = np.float64(equalize_hist_3d(mono_image))
+        self.mono_light_regions = [self.apply_multi_mask(mono_image, np.float64(light_region_mask))
+                                   for light_region_mask in self.light_region_masks]
+        self.mono_shadow_regions = [self.apply_multi_mask(mono_image, np.float64(shadow_region_mask))
+                                    for shadow_region_mask in self.shadow_region_masks]
+
+        self.mono_light_regions_means = self.calculate_regions_means(self.light_region_masks,
+                                                                     self.mono_light_regions)
+        self.mono_shadow_regions_means = self.calculate_regions_means(self.shadow_region_masks,
+                                                                      self.mono_shadow_regions)
 
         distance = 0
         for shadow_region_index in range(len(self.shadow_region_masks)):
-            light_region_index = self.get_closest_region_index(shadow_region_index, method=method)
-            distance += abs(self.mono_light_regions_means[light_region_index][0]-
-                            self.mono_shadow_regions_means[shadow_region_index][0])
+            light_region_index = self.matches[shadow_region_index]
+            if light_region_index >= 0:
+                distance += abs(self.mono_light_regions_means[light_region_index][0]-
+                                self.mono_shadow_regions_means[shadow_region_index][0])
         return distance
 
     def apply_mask(self, image, mask):
@@ -103,7 +124,8 @@ class DistanceFinder(object):
         image, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         big_regions = []
         small_regions = []
-
+        big_centroids = []
+        small_centroids = []
         min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / settings['min_size_factor']
 
         for i in range(len(contours)):
@@ -114,10 +136,22 @@ class DistanceFinder(object):
                 s = cv2.sumElems(subregion/255)[0]
                 if s > min_size:
                     big_regions.append(subregion)
+                    #big_centroids.append(centroids[i])
                 else:
                     small_regions.append(subregion)
+                    #small_centroids.append(centroids[i])
 
-        return big_regions, small_regions
+        big_centroids = self.get_centroids(big_regions)
+        return big_regions, small_regions, big_centroids, small_centroids
+
+    def get_centroids(self, contours):
+        centroids = []
+        for contour in contours:
+            M = cv2.moments(contour)
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+            centroids.append((cx, cy))
+        return centroids
 
     def saturate(self, image):
         return cv2.convertScaleAbs(image)
@@ -128,10 +162,11 @@ class DistanceFinder(object):
     def generate_regions(self, lights, is_color=True):
         msft = cv2.medianBlur(lights, 5)
         gray_msft = cv2.cvtColor(msft, cv2.COLOR_BGR2GRAY) if is_color else lights
-        big_regions_masks, small_regions = self.get_region_masks(gray_msft)
+        big_regions_masks, small_regions\
+            ,big_centroids, small_centroids= self.get_region_masks(gray_msft)
         light_regions = []
         valid_masks = []
-
+        valid_centroids = []
         min_size = lights.shape[0] * lights.shape[1] / 20
         for i in range(len(big_regions_masks)):
             mask = big_regions_masks[i]
@@ -141,8 +176,9 @@ class DistanceFinder(object):
             if valid_pixels > min_size:
                 light_regions.append(region)
                 valid_masks.append(mask)
+                valid_centroids.append(big_centroids[i])
                 #show_and_save(str(i), "dbg_img/light_region", 'png', region)
-        return valid_masks, light_regions
+        return valid_masks, light_regions, valid_centroids
 
     def calculate_light_regions_means(self, method=0):
         return self.calculate_regions_means(self.light_region_masks, self.light_regions, method)
@@ -159,8 +195,10 @@ class DistanceFinder(object):
         for i in range(len(region_masks)):
             region_mask = region_masks[i]
             region = regions[i]
-            region = Step1().convert_to_lab(region) if method == 1 else region
-            region = Step1().convert_to_hsv(region) if method == 2 else region
+            #is color image
+            if len(region.shape) > 2 and region.shape[2] == 3:
+                region = Step1().convert_to_lab(region) if method == 1 else region
+                region = Step1().convert_to_hsv(region) if method == 2 else region
             means.append(self.get_means(region, region_mask))
         return means
 
@@ -181,59 +219,74 @@ class DistanceFinder(object):
         lights = Step1().convert_to_lab(lights) if method == 1 else lights
         lights = Step1().convert_to_hsv(lights) if method == 2 else lights
 
-        light_region_means = self.get_means(lights, light_mask)
+        light_regions_means = self.get_means(lights, light_mask)
         shadows_means = self.get_means(shadows, shadow_mask)
-        return [light_region_means[i] / shadows_means[i] for i in range(3)]
+        return [light_regions_means[i] / shadows_means[i] for i in range(3)]
 
     def get_closest_region_index(self, shadow_index, method=0):
         #METHODS
         # 0 BGR
         # 1 LAB
         # 2 HSV
-        ts = time.time()
         shadow_region_mask = self.shadow_region_masks[shadow_index]
         shadow_region = self.shadow_regions[shadow_index]
         shadow_region = Step1().convert_to_lab(shadow_region) if method == 1 else shadow_region
         shadow_region = Step1().convert_to_hsv(shadow_region) if method == 2 else shadow_region
-        s_avg = self.get_means(shadow_region, shadow_region_mask)
+        sh_avg = self.get_means(shadow_region, shadow_region_mask)
         index = 0
         distance = 100000000
-        for i in range(len(self.light_regions_means)):
-            light_region_mean = self.light_regions_means[i]
-            if method == 0:
-                start_idx = 0
-                end_idx = 3
-                mn_start = 0
-                mn_end = 3
-            elif method == 1:
-                start_idx = 1
-                end_idx = 3
-                mn_start = 0
-                mn_end = 1
-            elif method == 2:
-                start_idx = 0
-                end_idx = 2
-                mn_start = 2
-                mn_end = 3
-            lrm = [light_region_mean[j] for j in range(mn_start, mn_end)]
-            if sum(lrm) > 50:
-                diffs = [math.fabs(light_region_mean[j] - s_avg[j]) for j in range(start_idx, end_idx)]
-                new_dis = sum(diffs)
+        for light_index in range(len(self.light_regions_means)):
+            light_region_mean = self.light_regions_means[light_index]
+            color_distance = self.color_distance(light_region_mean, sh_avg, method)
+            if color_distance >= 0:
+                spatial_distance = self.spatial_distance(shadow_index, light_index)
+                new_dis = settings['region_distance_balance']*color_distance + (1-settings['region_distance_balance']) * spatial_distance
                 if new_dis < distance:
                     distance = new_dis
-                    index = i
-        return index
+                    index = light_index
+        return index if distance < settings['max_color_dist'] else -1
+
+    def spatial_distance(self, shadow_index, light_index):
+        shadow_centroid = self.shadow_centroids[shadow_index]
+        light_centroid = self.light_centroids[light_index]
+        dis = pow(pow(shadow_centroid[0]-light_centroid[0],2)+pow(shadow_centroid[0]-light_centroid[0],2), 1/2)
+        return dis / self.diagonal
+
+    def color_distance(self, light_region_mean, sh_avg, method=0):
+        if method == 0:
+            start_idx = 0
+            end_idx = 3
+            mn_start = 0
+            mn_end = 3
+        elif method == 1:
+            start_idx = 1
+            end_idx = 3
+            mn_start = 0
+            mn_end = 1
+        elif method == 2:
+            start_idx = 0
+            end_idx = 2
+            mn_start = 2
+            mn_end = 3
+        lrm = [light_region_mean[j] for j in range(mn_start, mn_end)]
+        #  todo: parametrize
+        if sum(lrm) > 50:
+            diffs = [math.fabs(light_region_mean[j] - sh_avg[j]) for j in range(start_idx, end_idx)]
+            return sum(diffs) / (255 * len(diffs))
+        else:
+            return -1
 
     def get_means(self, region, mask):
         return [sm / cv2.sumElems(mask/255)[0] for sm in cv2.sumElems(region)]
 
     def print_region_matches(self, printer):
         for shadow_index in range(len(self.shadow_regions)):
-            light_index = self.get_closest_region_index(shadow_index)
-            shadow = self.shadow_regions[shadow_index]
-            light = self.light_regions[light_index]
-            out = np.concatenate((shadow, light), axis=1)
-            printer(shadow_index, out)
+            light_index = self.matches[shadow_index]
+            if light_index >= 0:
+                shadow = self.shadow_regions[shadow_index]
+                light = self.light_regions[light_index]
+                out = np.concatenate((shadow, light), axis=1)
+                printer(shadow_index, out)
 
     def print_light_regions(self, printer):
         for light_index in range(len(self.light_regions)):
