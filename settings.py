@@ -1,7 +1,7 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'r1',
+    'name': 'ale3',
     'extension': 'png',
     'predefined_angle': None,
     'tolerance': 7,

@@ -5,11 +5,12 @@ from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 
 
 def equalize_hist_3d(img):
+    i2 = img
     max_val = img.max()
     min_val = img.min()
     factor = 255.0 / (max_val - min_val)
-    eq_img = (img - min_val) * factor
-    return np.uint8(eq_img)
+    eq_img = (np.floor((i2 - min_val) * factor)).astype(np.uint64)
+    return cv2.convertScaleAbs(eq_img)
 
 
 def load_image(name, ext):
