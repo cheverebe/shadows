@@ -1,10 +1,12 @@
 import cv2
 import numpy as np
 # import matplotlib.pyplot as plt
-from settings import settings
 
 
 class ColorSegmentator(object):
+    def __init__(self, settings):
+        self.settings = settings
+
     @staticmethod
     def smooth(x,window_len=11,window='hanning'):
         if x.ndim != 1:
@@ -58,9 +60,9 @@ class ColorSegmentator(object):
     @staticmethod
     def generate_threshhold_mask(image, minval, maxval):
         image = np.uint8(image)
-        retval, mask_lw_high = cv2.threshold(image, maxval, 255, cv2.THRESH_BINARY)
+        retval, mask_lw_high = cv2.threshold(image, maxval+1, 255, cv2.THRESH_BINARY)
         mask_lw_high = 255 - mask_lw_high
-        retval, mask_hg_min = cv2.threshold(image, minval, 255, cv2.THRESH_BINARY_INV)
+        retval, mask_hg_min = cv2.threshold(image, minval-1, 255, cv2.THRESH_BINARY_INV)
         mask_hg_min = 255 - mask_hg_min
         # erase mask values
 
@@ -71,12 +73,13 @@ class ColorSegmentator(object):
         image, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         big_regions = []
 
-        min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / settings['min_size_factor']
+        min_size = shadow_mask.shape[0] * shadow_mask.shape[1] / self.settings['min_size_factor']
 
         for i in range(len(contours)):
             blank = np.zeros((shadow_mask.shape[0], shadow_mask.shape[1], 1), np.uint8)
 
             region_mask = cv2.drawContours(blank, contours, i, 255, -1)
+
             s = cv2.sumElems(region_mask/255)[0]
             if s > min_size:
                 big_regions.append(region_mask)
@@ -90,9 +93,6 @@ class ColorSegmentator(object):
         # plt.plot(hist, color='k')
         # plt.xlim([0,256])
 
-        spatial_radius = 50
-        color_radius = 50
-
         smooth_msft_hist = self.smooth(hist.reshape([256]), 20)
         # plt.plot(smooth_msft_hist, color='g')
 
@@ -103,15 +103,18 @@ class ColorSegmentator(object):
         h = cv2.split(hsv_img)[0]
 
         kernel_1 = np.ones((2,2), np.uint8)
-        kernel_2 = np.ones(settings['dil_erod_kernel_size_segmentator'], np.uint8)
+        kernel_2 = np.ones(self.settings['dil_erod_kernel_size_segmentator'], np.uint8)
 
         result = []
+        accum = np.zeros((img.shape[0], img.shape[1]), np.uint8)
         for i in range(len(hist_peaks)-1):
             mask = self.generate_threshhold_mask(h, hist_peaks[i], hist_peaks[i+1])
-
+            accum += mask
             mask = cv2.dilate(mask, kernel_1, iterations=3)
             mask = cv2.erode(mask, kernel_2, iterations=3)
             mask = cv2.dilate(mask, kernel_2, iterations=3)
+
+            cv2.imwrite('dbg_img/color_mask_'+str((hist_peaks[i], hist_peaks[i+1]))+'.png', mask)
 
             shape = mask.shape
             shape = [shape[0], shape[1]]
@@ -123,6 +126,7 @@ class ColorSegmentator(object):
                 for submask in submasks:
                     cv2.imshow('mask_'+str(i)+"_"+str(j), self.apply_mask(img,submask))
                     j += 1
+        cv2.imwrite('dbg_img/accum.png', accum)
 
         # plt.show()
 

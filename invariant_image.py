@@ -60,6 +60,8 @@ def find_invariant_image(original, two_dim, name):
     dist_finder.print_shadow_regions(printer)
     printer = lambda index, image: show_and_save('light('+str(index)+')', 'out/'+name, 'png', image)
     dist_finder.print_light_regions(printer)
+    printer = lambda index_s, index_l, image: show_and_save('distance'+str((index_s, index_l)), 'dbg_img/'+name, 'png', image)
+    dist_finder.print_region_distances(printer)
 
     cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
     cv2.imshow('shadow_mask', shadow_mask)

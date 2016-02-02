@@ -22,7 +22,12 @@ class DistanceFinder(object):
         self.light_regions_means = []
         self.dilated_shadows_mask = dilated_shadow_mask
 
-        self.color_region_masks = ColorSegmentator().segment_image(image)
+        self.color_region_masks = ColorSegmentator().segment_image(image, settings)
+
+        if method == 1:
+            LAB_img = Step1().convert_to_lab(image)
+            self.AB_max = LAB_img.max()
+            self.AB_min = LAB_img.min()
 
         self.shadow_region_masks, \
         small_shadow_region_masks, \
@@ -61,6 +66,7 @@ class DistanceFinder(object):
         self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1/2.0)
         self.matches = [self.get_closest_region_index(shadow_region_index, method=self.method)
                         for shadow_region_index in range(len(self.shadow_regions))]
+
 
     def run(self, mono_image):
         #todo: check if necessary
@@ -160,10 +166,11 @@ class DistanceFinder(object):
         return cv2.bitwise_and(image, mask)
 
     def generate_regions(self, lights, is_color=True):
-        msft = cv2.medianBlur(lights, 5)
-        gray_msft = cv2.cvtColor(msft, cv2.COLOR_BGR2GRAY) if is_color else lights
+        cv2.imwrite('dbg_img/lights.png', lights)
+        blured = cv2.medianBlur(lights, 5)
+        lights_2 = cv2.cvtColor(blured, cv2.COLOR_BGR2GRAY) if is_color else lights
         big_regions_masks, small_regions\
-            ,big_centroids, small_centroids= self.get_region_masks(gray_msft)
+            ,big_centroids, small_centroids= self.get_region_masks(lights_2)
         light_regions = []
         valid_masks = []
         valid_centroids = []
@@ -177,7 +184,6 @@ class DistanceFinder(object):
                 light_regions.append(region)
                 valid_masks.append(mask)
                 valid_centroids.append(big_centroids[i])
-                #show_and_save(str(i), "dbg_img/light_region", 'png', region)
         return valid_masks, light_regions, valid_centroids
 
     def calculate_light_regions_means(self, method=0):
@@ -249,35 +255,44 @@ class DistanceFinder(object):
     def spatial_distance(self, shadow_index, light_index):
         shadow_centroid = self.shadow_centroids[shadow_index]
         light_centroid = self.light_centroids[light_index]
-        dis = pow(pow(shadow_centroid[0]-light_centroid[0],2)+pow(shadow_centroid[0]-light_centroid[0],2), 1/2)
+        dis = pow(pow(shadow_centroid[0]-light_centroid[0],2)+pow(shadow_centroid[1]-light_centroid[1],2), 0.5)
         return dis / self.diagonal
 
-    def color_distance(self, light_region_mean, sh_avg, method=0):
+    def color_distance(self, light_region_mean, sh_avg, method=None):
+        if method is None:
+            method = self.method
         if method == 0:
-            start_idx = 0
-            end_idx = 3
-            mn_start = 0
-            mn_end = 3
+            color_indices = [0,1,2]
+            light_indices = [0,1,2]
+            value_range= 255
         elif method == 1:
-            start_idx = 1
-            end_idx = 3
-            mn_start = 0
-            mn_end = 1
+            color_indices = [1,2]
+            light_indices = [0]
+            value_range= self.AB_max - self.AB_min
         elif method == 2:
-            start_idx = 0
-            end_idx = 2
-            mn_start = 2
-            mn_end = 3
-        lrm = [light_region_mean[j] for j in range(mn_start, mn_end)]
+            color_indices = [0]
+            light_indices = [2]
+            value_range= 255
+        lrm = [light_region_mean[j] for j in light_indices]
         #  todo: parametrize
-        if sum(lrm) > 50:
-            diffs = [math.fabs(light_region_mean[j] - sh_avg[j]) for j in range(start_idx, end_idx)]
-            return sum(diffs) / (255 * len(diffs))
+        if self.is_not_black_region(lrm, method):
+            diffs = [math.fabs(light_region_mean[j] - sh_avg[j]) for j in color_indices]
+            return sum(diffs) / (value_range * len(diffs))
         else:
             return -1
 
+    @staticmethod
+    def is_not_black_region(region_means, method):  #todo: fix for method 1 y 2
+        return sum(region_means) > 50 or method > 0
+
     def get_means(self, region, mask):
-        return [sm / cv2.sumElems(mask/255)[0] for sm in cv2.sumElems(region)]
+        try:
+            region = self.apply_mask(region, mask) if len(region.shape) > 2 and \
+                                                      region.shape[2] == 3 \
+                else self.apply_multi_mask(region.astype(np.uint8()), mask)
+        except:
+            pass
+        return [sm / cv2.sumElems(mask/mask)[0] for sm in cv2.sumElems(region)]
 
     def print_region_matches(self, printer):
         for shadow_index in range(len(self.shadow_regions)):
@@ -297,3 +312,30 @@ class DistanceFinder(object):
         for shadow_index in range(len(self.shadow_regions)):
             shadow = self.shadow_regions[shadow_index]
             printer(shadow_index, shadow)
+
+    def print_region_distances(self, printer):
+        for shadow_index in range(len(self.shadow_regions)):
+            shadow = self.shadow_regions[shadow_index]
+            shadow_region_mask = self.shadow_region_masks[shadow_index]
+            sh_avg = self.get_means(shadow, shadow_region_mask)
+            for light_index in range(len(self.light_regions)):
+                light = self.light_regions[light_index]
+                light_region_mean = self.light_regions_means[light_index]
+                color_distance = self.color_distance(light_region_mean, sh_avg)
+                spatial_distance = self.spatial_distance(shadow_index, light_index)
+                new_dis = settings['region_distance_balance']*color_distance + (1-settings['region_distance_balance']) * spatial_distance
+
+                out = np.concatenate((shadow, light), axis=1)
+
+                shadow_centroid = self.shadow_centroids[shadow_index]
+                cv2.circle(out, shadow_centroid, 10, (255,0,255))
+                light_centroid = self.light_centroids[light_index]
+                cv2.circle(out, light_centroid, 10, (255,0,255))
+
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(out, "sh-color:"+str(sh_avg), (30,200), font, 1,(255,255,255))
+                cv2.putText(out, "light-color:"+str(light_region_mean), (30,250), font, 1,(255,255,255))
+                cv2.putText(out, "color-dist:"+repr(color_distance), (30,300), font, 1,(255,255,255))
+                cv2.putText(out, "space-dist:"+repr(spatial_distance), (30,350), font, 1,(255,255,255))
+                cv2.putText(out, "total-dist:"+repr(new_dis), (30,400), font, 1,(255,255,255))
+                printer(shadow_index, light_index, out)

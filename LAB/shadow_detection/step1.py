@@ -12,6 +12,12 @@ class Step1(object):
 
     def convert_to_lab(self, image):
         return cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        (l, a, b) = cv2.split(lab)
+        m = max(a.max(), b.max())
+        a = a*255/m
+        b = b*255/m
+        return cv2.merge((l, a, b))
 
     def convert_lab_to_bgr(self, image):
         return cv2.cvtColor(image, cv2.COLOR_LAB2BGR)

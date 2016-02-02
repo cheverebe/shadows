@@ -1,22 +1,23 @@
 __author__ = 'cheverebe'
 
 settings = {
-    'name': 'ale3',
+    'name': 'ale1',
     'extension': 'png',
     'predefined_angle': None,
-    'tolerance': 7,
+    'tolerance': 10,
+
     #'ksize': (50, 10),
     'blur_kernel_size': (5, 5),
-    'min_size_factor': 30,
+    'min_size_factor': 80,
     'dil_erod_kernel_size': (8, 8),
     'dil_erod_kernel_size_segmentator': (8, 8),
-    'region_distance_balance': 0.8,  # color/spatial,
-    'max_color_dist': 0.2,  # color/spatial,
+    'region_distance_balance': 1,  # color/spatial
+    'max_color_dist': 0.3,
     #METHODS
     # 0 BGR
     # 1 LAB
     # 2 HSV
-    'method': 2
+    'method': 1
 
 }
 
