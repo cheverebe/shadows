@@ -8,7 +8,7 @@ settings = {
 
     #'ksize': (50, 10),
     'blur_kernel_size': (5, 5),
-    'min_size_factor': 80,
+    'min_size_factor': 20,
     'dil_erod_kernel_size': (8, 8),
     'dil_erod_kernel_size_segmentator': (8, 8),
     'region_distance_balance': 1,  # color/spatial

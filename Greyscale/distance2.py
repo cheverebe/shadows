@@ -1,41 +1,49 @@
 # Dilate/Erode mask
 import cv2
 import numpy as np
-import time
-from LAB.shadow_detection.step1 import Step1
 import math
-from LAB.shadow_detection.utils import show_and_save
 from color_segmentator import ColorSegmentator
 from settings import settings
 from LAB.shadow_detection.utils import equalize_hist_3d
 
 
 class Region(object):
-    def __init__(self, image, mask, colorspace):
-        self.image = self.apply_mask(image(), mask)
-        self.mask = mask
+    def __init__(self, image, mask, colorspace=None):
+        if colorspace:
+            self.image = colorspace.pre_process_image(image)
+        else:
+            self.image = image.copy()
+        self.image = self.apply_mask(self.image, mask)
+        self.mask = mask.copy()
         self.means = self.calculate_means()
-        self.cetroid = self.get_centroid()
+        self.centroid = self.get_centroid()
         self.colorspace = colorspace
+        self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1/2.0)
 
     def calculate_means(self):
-        region = self.apply_mask(self.image.astype(np.uint8()), self.mask)  #todo: remove because shpuld be necessary
-        return [sm / cv2.sumElems(self.mask/self.mask)[0] for sm in cv2.sumElems(region)]
+        pixel_count = cv2.sumElems(self.mask/255)[0]
+        return [sm / pixel_count if pixel_count > 0 else 0
+                for sm in cv2.sumElems(self.image)]
 
     def apply_mask(self, image, mask):
-        if len(mask.shape) > 2:
+        if len(mask.shape) > 2 or len(image.shape) == len(mask.shape):
             if not len(image.shape) == len(mask.shape):
                 print "Mask should be a grayscale or have the same depth of image"
                 raise Exception
             if not len(image.shape[:2]) == len(mask.shape[:2]):
                 print "Mask should have the same size of the image"
                 raise Exception
-            return cv2.bitwise_and(image, cv2.merge(mask))
+            return cv2.bitwise_and(image, mask)
         else:
             return cv2.bitwise_and(image, cv2.merge([mask, mask, mask]))
 
     def get_centroid(self):
         M = cv2.moments(self.mask)
+
+        if M['m00'] == 0: #if region is empty
+            return (self.mask.shape[0] / 2,
+                    self.mask.shape[1] / 2)
+
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
         return (cx, cy)
@@ -45,71 +53,33 @@ class Region(object):
         return dis / self.diagonal
 
     def color_distance(self, other_region):
+
         if not self.colorspace == other_region.colorspace:
             raise Exception
-        #  todo: parametrize
-        if self.colorspace.is_not_black_region(other_region):
-            diffs = [math.fabs(self.means[j] - other_region.means[j]) for j in self.colorspace.color_indices]
-            return sum(diffs) / (self.colorspace.value_range() * len(diffs))
+
+        if self.colorspace.is_not_black_region(other_region.image):
+            diffs = [math.fabs(self.means[j] - other_region.means[j])
+                     for j in self.colorspace.color_indices()]
+            return sum(diffs) / (self.colorspace.value_range(self.image) * len(diffs))
         else:
             return -1
 
-
-class ColorSpaceMethod(object):
-    def __init__(self):
-        pass
-
-    def value_range(self, image):
-        raise NotImplementedError
-
-    def pre_process_image(self, image):
-        raise NotImplementedError
-
-    def post_process_image(self, image):
-        raise NotImplementedError
-
-    def color_indices(self):
-        raise NotImplementedError
-
-    def light_indices(self,):
-        raise NotImplementedError
-
-    def is_not_black_region(self, region):  # todo: fix for method 1 y 2
-        means = region.means
-        region_light_means = [means[j] for j in self.light_indices()]
-        return sum(region_light_means) > 50
+    def showable_image(self):
+        return self.colorspace.post_process_image(self.image)
 
 
 class DistanceFinder(object):
-    def __init__(self, image, dilated_shadow_mask, method=0):
+    def __init__(self, image, dilated_shadow_mask, colorspace):
         self.image = image
-        self.method = method
+        self.colorspace = colorspace
         self.shadow_regions = []
         self.light_regions = []
         self.dilated_shadows_mask = dilated_shadow_mask
 
-        if method == 1:
-            LAB_img = Step1().convert_to_lab(image)
-            self.AB_max = LAB_img.max()
-            self.AB_min = LAB_img.min()
-
-        self.shadow_regions = self.generate_regions(dilated_shadow_mask)
-
-        #recompute the shadow mask using all the region masks to avoid troubles with edges
-        #dilated_shadow_mask = np.zeros((dilated_shadow_mask.shape[0], dilated_shadow_mask.shape[1]),
-        #                               np.uint8)
-
-        #for region_mask in small_shadow_region_masks:
-        #    dilated_shadow_mask += region_mask
-
-        #for region_mask in self.shadow_region_masks:
-        #    region = self.apply_mask(image, region_mask)
-        #    self.shadow_regions.append(region)
-        #    dilated_shadow_mask += region_mask
-        #---------------------------------------------------
+        self.shadow_regions = self.generate_regions(dilated_shadow_mask, colorspace)
 
         light_mask = 255 - dilated_shadow_mask
-        self.light_regions = self.generate_regions(light_mask)
+        self.light_regions = self.generate_regions(light_mask, colorspace)
         #mono image regions initialization
 
         self.mono_shadow_regions = []
@@ -122,7 +92,6 @@ class DistanceFinder(object):
             self.matches[shadow_region] = self.get_closest_region(shadow_region)
 
     def run(self, mono_image):
-        #todo: check if necessary
         mono_image = np.float64(equalize_hist_3d(mono_image))
         mono_light_regions = {}
         for light_region in self.light_regions:
@@ -146,11 +115,10 @@ class DistanceFinder(object):
         return cv2.bitwise_and(dilated_mask, original_mask)
 
     def generate_regions(self, main_mask, colorspace):
-        color_region_masks = ColorSegmentator().segment_image(self.image, settings)
+        color_region_masks = ColorSegmentator(settings).segment_image(self.image)
         mask = main_mask.copy()
         image, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         big_regions = []
-        small_regions = []
         min_size = main_mask.shape[0] * main_mask.shape[1] / settings['min_size_factor']
 
         for i in range(len(contours)):
@@ -162,64 +130,66 @@ class DistanceFinder(object):
                 region = Region(self.image, subregion, colorspace)
                 if s > min_size:
                     big_regions.append(region)
-                else:
-                    small_regions.append(region)
 
-        return big_regions, small_regions
+        return big_regions
 
     def apply_multi_mask(self, image, mask):
         return cv2.bitwise_and(image, mask)
 
-    def get_closest_region(self, shadow_index):
-        shadow_region = self.shadow_regions[shadow_index]
+    def get_closest_region(self, shadow_region):
         closest_region = None
         distance = 100000000
         for light_region in self.light_regions:
             color_distance = shadow_region.color_distance(light_region)
             if color_distance >= 0:
                 spatial_distance = shadow_region.spatial_distance(light_region)
-                new_dis = settings['region_distance_balance']*color_distance + (1-settings['region_distance_balance']) * spatial_distance
+                new_dis = settings['region_distance_balance']*color_distance + \
+                          (1-settings['region_distance_balance']) * spatial_distance
                 if new_dis < distance:
                     distance = new_dis
                     closest_region = light_region
         return closest_region if distance < settings['max_color_dist'] else None
 
     def print_region_matches(self, printer):
-        for shadow_index in range(len(self.shadow_regions)):
-            light_index = self.matches[shadow_index]
-            if light_index >= 0:
-                shadow = self.shadow_regions[shadow_index]
-                light = self.light_regions[light_index]
-                out = np.concatenate((shadow, light), axis=1)
-                printer(shadow_index, out)
+        i = 0
+        for shadow in self.shadow_regions:
+            light = self.matches[shadow]
+            if light >= 0:
+                out = np.concatenate((shadow.showable_image(),
+                                      light.showable_image()), axis=1)
+                printer(i, out)
+                i += 1
 
     def print_light_regions(self, printer):
-        for light_index in range(len(self.light_regions)):
-            light = self.light_regions[light_index]
-            printer(light_index, light)
+        i = 0
+        for light in self.light_regions:
+            printer(i, light.showable_image())
+            i += 1
 
     def print_shadow_regions(self, printer):
-        for shadow_index in range(len(self.shadow_regions)):
-            shadow = self.shadow_regions[shadow_index]
-            printer(shadow_index, shadow)
+        i = 0
+        for shadow in self.shadow_regions:
+            printer(i, shadow.showable_image())
+            i += 1
 
     def print_region_distances(self, printer):
-        for shadow_index in range(len(self.shadow_regions)):
-            shadow = self.shadow_regions[shadow_index]
-            shadow_region_mask = self.shadow_region_masks[shadow_index]
-            sh_avg = self.get_means(shadow, shadow_region_mask)
-            for light_index in range(len(self.light_regions)):
-                light = self.light_regions[light_index]
-                light_region_mean = self.light_regions_means[light_index]
-                color_distance = self.color_distance(light_region_mean, sh_avg)
-                spatial_distance = self.spatial_distance(shadow_index, light_index)
-                new_dis = settings['region_distance_balance']*color_distance + (1-settings['region_distance_balance']) * spatial_distance
+        i = 0
+        for shadow in self.shadow_regions:
+            sh_avg = shadow.means
+            i += 1
+            j = 0
+            for light in self.light_regions:
+                light_region_mean = light.means
+                color_distance = light.color_distance(shadow)
+                spatial_distance = light.spatial_distance(shadow)
+                new_dis = settings['region_distance_balance']*color_distance + \
+                          (1-settings['region_distance_balance']) * spatial_distance
 
-                out = np.concatenate((shadow, light), axis=1)
+                out = np.concatenate((shadow.showable_image(), light.showable_image()), axis=1)
 
-                shadow_centroid = self.shadow_centroids[shadow_index]
+                shadow_centroid = shadow.centroid
                 cv2.circle(out, shadow_centroid, 10, (255,0,255))
-                light_centroid = self.light_centroids[light_index]
+                light_centroid = (shadow.image.shape[1] + light.centroid[0], light.centroid[1])
                 cv2.circle(out, light_centroid, 10, (255,0,255))
 
                 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -228,4 +198,5 @@ class DistanceFinder(object):
                 cv2.putText(out, "color-dist:"+repr(color_distance), (30,300), font, 1,(255,255,255))
                 cv2.putText(out, "space-dist:"+repr(spatial_distance), (30,350), font, 1,(255,255,255))
                 cv2.putText(out, "total-dist:"+repr(new_dis), (30,400), font, 1,(255,255,255))
-                printer(shadow_index, light_index, out)
+                printer(i, j, out)
+                j += 1

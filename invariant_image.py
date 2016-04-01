@@ -3,6 +3,8 @@ import math
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from Greyscale.distancefinder import DistanceFinder
+from Greyscale.colorspaces import LABColorSpace
+from Greyscale.distance2 import DistanceFinder as DistanceFinder2
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
 from LAB.shadow_detection.utils import show_and_save
 from settings import settings
@@ -53,6 +55,7 @@ def find_invariant_image(original, two_dim, name):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
     dist_finder = DistanceFinder(original, dilated_shadow_mask, settings['method'])
+    dist_finder = DistanceFinder2(original, dilated_shadow_mask, LABColorSpace())
 
     printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
     dist_finder.print_region_matches(printer)

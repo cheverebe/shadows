@@ -22,7 +22,7 @@ class DistanceFinder(object):
         self.light_regions_means = []
         self.dilated_shadows_mask = dilated_shadow_mask
 
-        self.color_region_masks = ColorSegmentator().segment_image(image, settings)
+        self.color_region_masks = ColorSegmentator(settings).segment_image(image)
 
         if method == 1:
             LAB_img = Step1().convert_to_lab(image)
@@ -292,7 +292,7 @@ class DistanceFinder(object):
                 else self.apply_multi_mask(region.astype(np.uint8()), mask)
         except:
             pass
-        return [sm / cv2.sumElems(mask/mask)[0] for sm in cv2.sumElems(region)]
+        return [sm / cv2.sumElems(mask/255)[0] for sm in cv2.sumElems(region)]
 
     def print_region_matches(self, printer):
         for shadow_index in range(len(self.shadow_regions)):
