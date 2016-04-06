@@ -6,8 +6,8 @@ from LAB.shadow_detection.utils import show_and_save, equalize_hist_3d
 
 class InvariantImageGenerator(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, settings=None):
+        self.settings = settings
 
     def get_invariant_image(self, image, angles=range(0, 179, 4)):
         two_dim_log_chrom = self.two_dim_log_chrom(image)
@@ -95,6 +95,10 @@ class InvariantImageGenerator(object):
         out_2 = c1 + c2 + c3
         A = cv2.merge([out_1, out_2])
         return A
+
+    def project_into_predef_angle(self, two_dim_log_chrom):
+        angle = self.settings['predefined_angle']
+        return self.project_into_one_d(two_dim_log_chrom, angle)
 
     @staticmethod
     def project_into_one_d(two_dim_log_chrom, angle):
