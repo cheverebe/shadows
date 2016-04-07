@@ -54,7 +54,6 @@ def plot_entropies(angles, ent_list):
 def find_invariant_image(original, two_dim, name):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
-    dist_finder = DistanceFinder(original, dilated_shadow_mask, settings['method'])
     dist_finder = DistanceFinder2(original, dilated_shadow_mask, LABColorSpace())
 
     printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)

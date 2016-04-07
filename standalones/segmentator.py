@@ -13,8 +13,8 @@ class SegmentatorStandalone(StepStandalone):
     window_name = 'Color segmentator tester'
     processor_class = ColorSegmentator
 
-    def __init__(self, img_path):
-        super(SegmentatorStandalone, self).__init__(img_path)
+    def __init__(self):
+        super(SegmentatorStandalone, self).__init__()
 
     def apply_segmentation(self, segmentation):
         boundaries = self.pre_processed_img.copy()
@@ -63,5 +63,5 @@ class SegmentatorStandalone(StepStandalone):
                            self.kernel_size_y_callback)
 
 
-SegmentatorStandalone('img/r1.png').run()
+SegmentatorStandalone().run()
 cv2.destroyAllWindows()

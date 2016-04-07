@@ -6,12 +6,13 @@ class StepStandalone(object):
     window_name = 'Generic window'
     processor_class = None
 
-    def __init__(self, img_path):
+    def __init__(self):
+        img_path = 'img/kitti.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
 
         self.settings = self.load_settings()
-        self.processor = self.processor_class(self.settings)
+        self.processor = self.initialize_processor()
 
         self.pre_processed_img = self.pre_process_image()
         self.processed_img = None
@@ -71,5 +72,8 @@ class StepStandalone(object):
 
     def pre_process_image(self):
         return self.original_img
+
+    def initialize_processor(self):
+        return self.processor_class(self.settings)
 
 

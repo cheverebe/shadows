@@ -11,6 +11,7 @@ settings = {
     'min_size_factor': 20,
     'dil_erod_kernel_size': (8, 8),
     'dil_erod_kernel_size_segmentator': (8, 8),
+    'dilation_kernel_size_shadow_mask': (8, 8),
     'region_distance_balance': 1,  # color/spatial
     'max_color_dist': 0.3,
     #METHODS

@@ -7,25 +7,25 @@ from step4 import Step4
 from step5 import Step5
 from step6 import Step6
 import cv2
+from settings import settings
 
 
 class ShadowDetectionPipeline(object):
-    def __init__(self):
+    def __init__(self, settings=settings):
         self.step1 = Step1()
         self.step2 = Step2()
         self.step3A = Step3A()
         self.step3B = Step3B()
         self.step4 = Step4()
-        self.step5 = Step5()
-        self.step6 = Step6()
-
-    def run(self, image, methods=[0]):
-        dilated_shadow_mask, shadow_mask = self.find_dilated_shadow_mask(image)
-        #if method > 0:
-        #    image = self.step5.run(image, dilated_shadow_mask, shadow_mask, method)
-        for method in methods:
-            image = self.step5.run(image, dilated_shadow_mask, shadow_mask, method)
-        return image
+        self.settings = settings
+    #     self.step5 = Step5()
+    #     self.step6 = Step6()
+    #
+    # def run(self, image, methods=[0]):
+    #     dilated_shadow_mask, shadow_mask = self.find_dilated_shadow_mask(image)
+    #     for method in methods:
+    #         image = self.step5.run(image, dilated_shadow_mask, shadow_mask, method)
+    #     return image
 
     def find_dilated_shadow_mask(self, image):
         lab_image = self.step1.run(image)
@@ -35,5 +35,6 @@ class ShadowDetectionPipeline(object):
         else:
             shadow_mask = self.step3B.run(lab_image)
 
-        dilated_shadow_mask = self.step4.run(shadow_mask)
+        dilated_shadow_mask = self.step4.run(shadow_mask,
+                                             self.settings['dilation_kernel_size_shadow_mask'])
         return dilated_shadow_mask, shadow_mask
