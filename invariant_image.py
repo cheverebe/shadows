@@ -51,50 +51,21 @@ def plot_entropies(angles, ent_list):
     print angles
     print ent_list
 
-def find_invariant_image(original, two_dim, name):
+def find_invariant_image(original, two_dim): #, name):
     pip = ShadowDetectionPipeline()
     dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(original)
     dist_finder = DistanceFinder2(original, dilated_shadow_mask, LABColorSpace())
 
-    printer = lambda index, image: show_and_save('match('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_region_matches(printer)
-    printer = lambda index, image: show_and_save('shadow('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_shadow_regions(printer)
-    printer = lambda index, image: show_and_save('light('+str(index)+')', 'out/'+name, 'png', image)
-    dist_finder.print_light_regions(printer)
-    printer = lambda index_s, index_l, image: show_and_save('distance'+str((index_s, index_l)), 'dbg_img/'+name, 'png', image)
-    dist_finder.print_region_distances(printer)
-
-    cv2.namedWindow("shadow_mask", cv2.WINDOW_NORMAL)
-    cv2.imshow('shadow_mask', shadow_mask)
     iig = InvariantImageGenerator()
     # FIND MIN ANGLE
-    min_entropy = 0
     min_mono = []
-    entropy_array = []
-
-    #----AUX DATA
-    light_mask = 255 - shadow_mask
-    shadow_pixels_count = cv2.sumElems(shadow_mask/255)[0]
-    light_pixels_count = cv2.sumElems(light_mask/255)[0]
 
     angles = xrange(0, 180)
-    min_angle = 0   #hack horriible
+    min_angle = 0
     min_distance = -1
 
-
-    ent_list = []
     for angle in angles:
         mono = iig.project_into_one_d(two_dim, angle)
-
-        #light_pixels = cv2.bitwise_and(np.float64(mono), np.float64(light_mask))
-        #light_mean = cv2.sumElems(light_pixels)[0]/light_pixels_count
-
-        #shadow_pixels = cv2.bitwise_and(np.float64(mono), np.float64(shadow_mask))
-        #shadow_mean = cv2.sumElems(shadow_pixels)[0]/shadow_pixels_count
-
-        #distance = abs(light_mean - shadow_mean)
-
         distance = dist_finder.run(np.float64(mono))
 
         print str("%d, %s" % (angle, repr(distance)))

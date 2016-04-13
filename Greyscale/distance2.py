@@ -3,7 +3,8 @@ import random
 import cv2
 import numpy as np
 import math
-from boudary_drawer import draw_boundaries
+from Greyscale.colorspaces import GrayscaleColorSpace
+from boudary_drawer import draw_boundaries, draw_region
 from color_segmentator import ColorSegmentator
 from settings import settings
 from LAB.shadow_detection.utils import equalize_hist_3d
@@ -62,7 +63,8 @@ class Region(object):
         if self.colorspace.is_not_black_region(other_region.image):
             diffs = [math.fabs(self.means[j] - other_region.means[j])
                      for j in self.colorspace.color_indices()]
-            return sum(diffs) / (self.colorspace.value_range(self.image) * len(diffs))
+            return 10 * math.sqrt(sum([math.pow(d, 2) for d in diffs])) / \
+                   self.colorspace.value_range(self.image)
         else:
             return -1
 
@@ -112,18 +114,27 @@ class DistanceFinder(object):
     def run(self, mono_image):
         mono_image = np.float64(equalize_hist_3d(mono_image))
         mono_light_regions = {}
+        colorspace = GrayscaleColorSpace()
         for light_region in self.light_regions:
-            mono_light_regions[light_region] = Region(mono_image, np.float64(light_region.mask))
+            mono_light_regions[light_region] = Region(mono_image,
+                                                      np.float64(light_region.mask),
+                                                      colorspace)
 
         mono_shadow_regions = {}
         for shadow_region in self.shadow_regions:
-            mono_shadow_regions[shadow_region] = Region(mono_image, np.float64(shadow_region.mask))
+            mono_shadow_regions[shadow_region] = Region(mono_image,
+                                                        np.float64(shadow_region.mask),
+                                                        colorspace)
 
         distance = 0
         for shadow_region in self.shadow_regions:
+            mono_shadow = mono_shadow_regions[shadow_region]
+
             light_region = self.matches[shadow_region]
+
             if light_region:
-                distance += abs(light_region.means[0] - shadow_region.means[0])
+                mono_light = mono_light_regions[light_region]
+                distance += mono_shadow.color_distance(mono_light)
         return distance
 
     def apply_mask(self, image, mask):
@@ -198,7 +209,21 @@ class DistanceFinder(object):
                 displaced_centroid = (shadow.get_centroid()[0]+15,
                                       shadow.get_centroid()[1])
                 cv2.putText(out, str(distance)[:5],
-                            displaced_centroid, font, 0.3, color)
+                            displaced_centroid, font, 0.5, color)
+
+        return out
+
+    def segmentation_image(self):
+
+        out = np.zeros((self.image.shape[0],
+                        self.image.shape[1], 3), np.uint8)
+
+        for shadow in self.shadow_regions:
+            color = [random.randint(0, 255) for _ in xrange(3)]
+            out = draw_boundaries(out, shadow.mask, color)
+
+        for light in self.shadow_regions:
+            out = draw_region(out, light.mask)
 
         return out
 

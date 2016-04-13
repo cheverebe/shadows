@@ -80,7 +80,27 @@ class HSVColorSpace(ColorSpace):
         return cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
 
     def color_indices(self):
-        return [0]
+        return [0,1]
 
     def light_indices(self,):
         return [2]
+
+
+class GrayscaleColorSpace(ColorSpace):
+    def __init__(self):
+        pass
+
+    def value_range(self, image):
+        return 255
+
+    def pre_process_image(self, image):
+        return image.copy()
+
+    def post_process_image(self, image):
+        return image.copy()
+
+    def color_indices(self):
+        return [0]
+
+    def light_indices(self):
+        return [0]

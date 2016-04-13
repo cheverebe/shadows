@@ -57,7 +57,7 @@ class StepStandalone(object):
         settings_file.close()
 
         settings = self.default_settings
-        if len(settings) > 0:
+        if len(file_content) > 0:
             settings.update(json.loads(file_content))
 
         return settings
@@ -76,4 +76,8 @@ class StepStandalone(object):
     def initialize_processor(self):
         return self.processor_class(self.settings)
 
-
+    def get_colorspace(self):
+        colorspace_name = self.settings['distance_colorspace_name']
+        mod = __import__('Greyscale.colorspaces', fromlist=[colorspace_name])
+        colorspace_class = getattr(mod, colorspace_name)
+        return colorspace_class()
