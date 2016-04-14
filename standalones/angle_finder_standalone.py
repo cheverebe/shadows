@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
-from LAB.shadow_detection.utils import equalize_hist_3d
 from standalones.step_standalone import StepStandalone
 from Greyscale.distance2 import DistanceFinder
 
@@ -11,8 +10,9 @@ class AngleFinderStandalone(StepStandalone):
     processor_class = InvariantImageGenerator
 
     def __init__(self):
-        super(AngleFinderStandalone, self).__init__()
         self.angle = -1
+        self.dist_finder = 0
+        super(AngleFinderStandalone, self).__init__()
 
     def pre_process_image(self):
         img = self.original_img
@@ -25,7 +25,7 @@ class AngleFinderStandalone(StepStandalone):
 
         pip = ShadowDetectionPipeline(self.settings)
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(img)
-        dist_finder = DistanceFinder(img, dilated_shadow_mask, colorspace)
+        self.dist_finder = DistanceFinder(img, dilated_shadow_mask, colorspace)
 
         # FIND MIN ANGLE
         min_mono = []
@@ -36,7 +36,7 @@ class AngleFinderStandalone(StepStandalone):
 
         for angle in angles:
             mono = iig.project_into_one_d(two_dim, angle)
-            distance = dist_finder.run(np.float64(mono))
+            distance = self.dist_finder.run(np.float64(mono))
 
             print str("%d, %s" % (angle, repr(distance)))
             if min_distance == -1 or distance < min_distance:
@@ -45,14 +45,27 @@ class AngleFinderStandalone(StepStandalone):
                 min_angle = angle
 
         self.angle = min_angle
-        print 'min angle: '+str(min_angle)
-        return equalize_hist_3d(min_mono)
+        return two_dim
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
 
+        cv2.createTrackbar('angle',
+                           self.window_name,
+                           self.angle,
+                           180,
+                           self.angle_callback)
+
+    def angle_callback(self, angle):
+        self.angle = angle
+        self.update_screen()
+
     def update_img(self):
-        self.processed_img = self.pre_processed_img
+        self.processed_img = self.processor.project_into_one_d(
+            self.pre_processed_img,
+            self.angle
+        )
+        self.processed_img = self.dist_finder.mono_distance_image(self.processed_img)
 
 AngleFinderStandalone().run()
 cv2.destroyAllWindows()

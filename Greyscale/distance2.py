@@ -29,7 +29,7 @@ class Region(object):
                 for sm in cv2.sumElems(self.image)]
 
     def apply_mask(self, image, mask):
-        if len(mask.shape) > 2 or len(image.shape) == len(mask.shape):
+        if len(mask.shape) > 2 or (len(image.shape) == len(mask.shape)):
             if not len(image.shape) == len(mask.shape):
                 print "Mask should be a grayscale or have the same depth of image"
                 raise Exception
@@ -211,6 +211,50 @@ class DistanceFinder(object):
                 cv2.putText(out, str(distance)[:5],
                             displaced_centroid, font, 0.5, color)
 
+        return out
+
+    def mono_distance_image(self, image):
+        out = equalize_hist_3d(image)
+        #out = np.float64(equalize_hist_3d(image))
+
+        #------------
+
+        mono_light_regions = {}
+        colorspace = GrayscaleColorSpace()
+        for light_region in self.light_regions:
+            mono_light_regions[light_region] = Region(out,
+                                                      light_region.mask,
+                                                      colorspace)
+
+        mono_shadow_regions = {}
+        for shadow_region in self.shadow_regions:
+            mono_shadow_regions[shadow_region] = Region(out,
+                                                        shadow_region.mask,
+                                                        colorspace)
+        for shadow_region in self.shadow_regions:
+            mono_shadow = mono_shadow_regions[shadow_region]
+            color = [random.randint(0, 255)]
+            out = draw_boundaries(out, shadow_region.mask, color)
+
+            light_region = self.matches[shadow_region]
+
+            if light_region:
+                mono_light = mono_light_regions[light_region]
+                radius = 4
+                thickness = 2
+                cv2.circle(out, shadow_region.get_centroid(),
+                           radius, color, thickness)
+                out = draw_boundaries(out, light_region.mask, color)
+                cv2.circle(out, light_region.get_centroid(),
+                           radius, color, thickness)
+                cv2.line(out, shadow_region.get_centroid(),
+                         light_region.get_centroid(), color, thickness)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                distance = mono_shadow.color_distance(mono_light)
+                displaced_centroid = (shadow_region.get_centroid()[0]+15,
+                                      shadow_region.get_centroid()[1])
+                cv2.putText(out, str(distance)[:5],
+                            displaced_centroid, font, 0.5, color)
         return out
 
     def segmentation_image(self):

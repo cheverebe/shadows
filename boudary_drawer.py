@@ -7,9 +7,9 @@ def draw_boundaries(image, mask, color=(0, 0, 255)):
     edges = cv2.Canny(mask, 120, 150)
     killer = 255 - edges
     black = np.zeros((edges.shape[0], edges.shape[1], 1), np.uint8)
-    color = [black + color[i] for i in xrange(3)]
-    color_edges = cv2.bitwise_and(cv2.merge(color), cv2.merge([edges, edges, edges]))
-    black_edges = cv2.bitwise_and(image, cv2.merge([killer, killer, killer]))
+    color = [black + color[i] for i in xrange(len(color))]
+    color_edges = cv2.bitwise_and(cv2.merge(color), cv2.merge([edges]*len(color)))
+    black_edges = cv2.bitwise_and(image, cv2.merge([killer]*len(color)))
     res = cv2.bitwise_or(black_edges, color_edges)
     return res
 
