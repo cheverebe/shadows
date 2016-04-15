@@ -29,7 +29,7 @@ def generate_threshhold_mask(image, minval, maxval):
     final = cv2.bitwise_and(mask_hg_min, mask_lw_high)
     return final
 
-def biggest_contour(image):
+def best_contour(image):
     mask = image.copy()
     image, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -38,11 +38,13 @@ def biggest_contour(image):
     for i in range(len(contours)):
         blank = np.zeros((image.shape[0], image.shape[1], 1), np.uint8)
         region_mask = cv2.drawContours(blank, contours, i, 255, -1)
-        s = cv2.sumElems(region_mask/255)[0]
+        mask_roi = get_roi(region_mask)
+        s = cv2.sumElems(mask_roi/255)[0]
         if s > biggest_count:
             biggest = region_mask
             biggest_count = s
-    return biggest
+
+    return biggest if biggest_count > 0 else np.zeros((image.shape[0], image.shape[1], 1), np.uint8)
 
 def find_path(img):
     path_tone = find_path_tone(img)
@@ -59,4 +61,4 @@ def find_path(img):
     eroded_mask = cv2.erode(path_mask, kernel, iterations=3)
     path_mask = cv2.dilate(eroded_mask, kernel, iterations=3)
 
-    return biggest_contour(path_mask)
+    return best_contour(path_mask)
