@@ -16,7 +16,7 @@ def get_roi(img):
 def find_path_tone(img):
     roi = get_roi(img)
     mean = cv2.mean(roi)[0]
-    print "mean:" + str(mean)
+    #print "mean:" + str(mean)
     return int(mean)
 
 def generate_threshhold_mask(image, minval, maxval):
