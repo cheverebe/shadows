@@ -4,11 +4,13 @@ from boudary_drawer import draw_boundaries, draw_region
 from color_segmentator import ColorSegmentator
 from standalones.step_standalone import StepStandalone
 
+from skimage.segmentation import mark_boundaries
 
 class SegmentatorStandalone(StepStandalone):
     default_settings = {
-        'min_size_factor': 80,
-        'dil_erod_kernel_size_segmentator': [8, 8]
+        'n_segments': 10,
+        'compactness': 10,
+        'sigma': 3
     }
     window_name = 'Color segmentator tester'
     processor_class = ColorSegmentator
@@ -28,39 +30,44 @@ class SegmentatorStandalone(StepStandalone):
         segmentation = self.processor.segment_image(self.pre_processed_img)
         self.processed_img = self.apply_segmentation(segmentation)
 
-    def min_size_factor_callback(self, pos):
-        self.processor.settings['min_size_factor'] = pos
-        self.settings['min_size_factor'] = pos
+    def n_segments_callback(self, pos):
+        self.processor.settings['n_segments'] = pos
+        self.settings['n_segments'] = pos
         self.update_screen()
 
-    def kernel_size_x_callback(self, value):
-        self.processor.settings['dil_erod_kernel_size_segmentator'][0] = value
-        self.settings['dil_erod_kernel_size_segmentator'][0] = value
+    def update_screen(self):
+        self.update_img()
+        self.display_message()
+        cv2.imshow(self.window_name, self.processed_img)
+
+    def compactness_callback(self, value):
+        self.processor.settings['compactness'] = value
+        self.settings['compactness'] = value
         self.update_screen()
 
-    def kernel_size_y_callback(self, pos):
-        self.processor.settings['dil_erod_kernel_size_segmentator'][1] = pos
-        self.settings['dil_erod_kernel_size_segmentator'][1] = pos
+    def sigma_callback(self, pos):
+        self.processor.settings['sigma'] = pos
+        self.settings['sigma'] = pos
         self.update_screen()
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
 
-        cv2.createTrackbar('min_size_factor',
+        cv2.createTrackbar('n_segments',
                            self.window_name,
-                           self.settings['min_size_factor'],
-                           100,
-                           self.min_size_factor_callback)
-        cv2.createTrackbar('dil_erod_kernel_X',
-                           self.window_name,
-                           self.settings['dil_erod_kernel_size_segmentator'][0],
+                           self.settings['n_segments'],
                            50,
-                           self.kernel_size_x_callback)
-        cv2.createTrackbar('dil_erod_kernel_Y',
+                           self.n_segments_callback)
+        cv2.createTrackbar('compactness',
                            self.window_name,
-                           self.settings['dil_erod_kernel_size_segmentator'][1],
+                           self.settings['compactness'],
                            50,
-                           self.kernel_size_y_callback)
+                           self.compactness_callback)
+        cv2.createTrackbar('sigma',
+                           self.window_name,
+                           self.settings['sigma'],
+                           20,
+                           self.sigma_callback)
 
 
 SegmentatorStandalone().run()

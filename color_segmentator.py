@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 # import matplotlib.pyplot as plt
 
+from skimage.segmentation import felzenszwalb, slic, quickshift, mark_boundaries
+from LAB.shadow_detection.utils import equalize_hist_3d
+
 
 class ColorSegmentator(object):
     def __init__(self, settings):
@@ -60,7 +63,7 @@ class ColorSegmentator(object):
     @staticmethod
     def generate_threshhold_mask(image, minval, maxval):
         image = np.uint8(image)
-        retval, mask_lw_high = cv2.threshold(image, maxval+1, 255, cv2.THRESH_BINARY)
+        retval, mask_lw_high = cv2.threshold(image, maxval, 255, cv2.THRESH_BINARY)
         mask_lw_high = 255 - mask_lw_high
         retval, mask_hg_min = cv2.threshold(image, minval-1, 255, cv2.THRESH_BINARY_INV)
         mask_hg_min = 255 - mask_hg_min
@@ -87,6 +90,33 @@ class ColorSegmentator(object):
         return big_regions
 
     def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
+        return self.segment_image_new(img, show)
+
+    def segment_image_new(self, img=cv2.imread('img/road6.png'), show=False):
+        #min_size = img.shape[0] * img.shape[1] / self.settings['min_size_factor']
+
+        n_segments = self.settings['n_segments']
+        compactness = self.settings['compactness']
+        sigma = self.settings['sigma']
+
+        #segments = felzenszwalb(img, scale=800, sigma=0.5, min_size=800)
+        segments = slic(img,
+                        n_segments=n_segments,
+                        compactness=compactness,
+                        sigma=sigma,
+                        convert2lab=True)
+
+        #segments = quickshift(img, kernel_size=3, max_dist=1600, ratio=0.5)
+
+        contours = []
+        for i in range(segments.min(), segments.max()+1):
+            mask = self.generate_threshhold_mask(segments, i, i)
+            contours.append(mask)
+        #m = mark_boundaries(black, segments)
+
+        return contours
+
+    def segment_image_old(self, img=cv2.imread('img/road6.png'), show=False):
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         hist = cv2.calcHist([hsv_img], [0], None, [256], [0,256])
 
@@ -111,8 +141,10 @@ class ColorSegmentator(object):
             mask = self.generate_threshhold_mask(h, hist_peaks[i], hist_peaks[i+1])
             accum += mask
             mask = cv2.dilate(mask, kernel_1, iterations=3)
-            mask = cv2.erode(mask, kernel_2, iterations=3)
-            mask = cv2.dilate(mask, kernel_2, iterations=3)
+            mask = cv2.erode(mask, kernel_1, iterations=3)
+            if self.settings['dil_erod_kernel_size_segmentator'] > 0:
+                mask = cv2.erode(mask, kernel_2, iterations=3)
+                mask = cv2.dilate(mask, kernel_2, iterations=3)
 
             cv2.imwrite('dbg_img/color_mask_'+str((hist_peaks[i], hist_peaks[i+1]))+'.png', mask)
 

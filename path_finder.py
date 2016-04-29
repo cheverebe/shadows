@@ -46,7 +46,7 @@ def best_contour(image):
 
     return biggest if biggest_count > 0 else np.zeros((image.shape[0], image.shape[1], 1), np.uint8)
 
-def find_path(img):
+def find_path(img, settings=settings):
     path_tone = find_path_tone(img)
     tolerance = settings['tolerance']
     upper_limit = path_tone + tolerance

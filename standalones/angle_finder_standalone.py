@@ -25,7 +25,10 @@ class AngleFinderStandalone(StepStandalone):
 
         pip = ShadowDetectionPipeline(self.settings)
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(img)
-        self.dist_finder = DistanceFinder(img, dilated_shadow_mask, colorspace)
+        self.dist_finder = DistanceFinder(img,
+                                          dilated_shadow_mask,
+                                          colorspace,
+                                          self.settings)
 
         # FIND MIN ANGLE
         min_mono = []
