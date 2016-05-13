@@ -13,43 +13,87 @@ from LAB.shadow_detection.utils import equalize_hist_3d
 
 class Region(object):
     def __init__(self, image, mask, colorspace=None):
+        #
+        # Calculate means over rgb image for mahalanobis
+        #
+        #self.image = image
+        #self.mask = mask.copy()
+        #self.values = self.calculate_region_values()
+        #self.means_rgb = self.calculate_means()
+        #self.means_rgb_lab = colorspace.pre_process_image(np.uint8(np.array(self.means_rgb).reshape([1,1,3])))
+        #--------------------------
         if colorspace:
             self.image = colorspace.pre_process_image(image)
         else:
             self.image = image.copy()
+
+        self.colorspace = colorspace
         self.image = self.apply_mask(self.image, mask)
         self.mask = mask.copy()
+        self.values = self.calculate_region_values()
         self.means = self.calculate_means()
-        self.covariance = self.calculate_covariance()
+        self.variances = self.calculate_standard_deviation()
+        #self.covariance = self.calculate_covariance_matrix()
         self.centroid = self.get_centroid()
-        self.colorspace = colorspace
         self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1 / 2.0)
 
     def calculate_means(self):
-        pixel_count = cv2.sumElems(self.mask / 255)[0]
-        return [sm / pixel_count if pixel_count > 0 else 0
-                for sm in cv2.sumElems(self.image)]
+        means = []
+        for value in self.values:
+            total = cv2.sumElems(value)[0]
+            mean = total / value.shape[0] if value.shape[0] > 0 else 0
+            means.append(mean)
+        return means
 
-    def calculate_covariance(self):
-        N = cv2.sumElems(self.mask / 255)[0]
+    def calculate_standard_deviation(self):
+        variances = []
+        for i in range(len(self.values)):
+            value = self.values[i]
+            mean = self.means[i]
+            N = len(value)
+            if N <= 1:
+                variances.append(0)
+            else:
+                v2 = (value - mean)
+                var = cv2.sumElems(np.array(v2) * np.array(v2))[0] / N
+                variances.append(math.sqrt(var))
+        return variances
+
+    def calculate_covariance_matrix(self):
+        N = len(self.values[0])
         if N > 1:
-            ch = cv2.split(self.image)
-            m = [0] * len(ch)
-            r = [0] * len(ch)
-            c = [0] * len(ch)
-            for i in range(len(ch)):
-                m[i] = np.ones(self.mask.shape, np.float64
-                               ) * self.means[i]
-                #  difference with mean
-                r[i] = ch[i] - m[i]
-                #  each diff pow 2
-                r[i] = cv2.multiply(r[i], r[i])
-
-                c[i] = cv2.sumElems(r[i])[0] / \
-                       (N - 1)
-            return c
+            s = []
+            for i in self.colorspace.color_indices():
+                value = self.values[i]
+                mean = self.means_rgb_lab[i]
+                v = (value - mean) / (N-1)
+                s.append(cv2.sumElems(v)[0])
+            s = np.array(s)
+            return np.array(np.matrix(s).transpose() * s)
         else:
-            return [0, 0, 0]
+            w = len(self.colorspace.color_indices())
+            return np.array([[0]*w]*w)
+
+    def set_minimum_cov(self, cov, minimums):
+        retval, eigenvalues, eigenvectors = cv2.eigen(cov)
+        for i in xrange(3):
+            if eigenvalues[i] < (minimums(i) * (360 * 50 if i == 0 else 0.25)):
+                eigenvalues[i] = minimums(i) * (360.0 * 50 if i == 0 else 0.25)
+        cov = eigenvectors * np.diag(eigenvalues) * eigenvectors.t()
+        return cov
+
+    def calculate_region_values(self):
+        N = cv2.sumElems(self.mask)[0]/255
+        if N > 0:
+            ch = cv2.split(self.image)
+            values = []
+            for i in range(len(ch)):
+                region_indices = np.where(self.mask)
+                values.append(ch[i][region_indices])
+            return values
+        else:
+            no_channels = self.image.shape[2] if len(self.image.shape) > 2 else 1
+            return [np.array([])]*no_channels
 
     def apply_mask(self, image, mask):
         if len(mask.shape) > 2 or (len(image.shape) == len(mask.shape)):
@@ -86,26 +130,61 @@ class Region(object):
             raise Exception
 
         if self.colorspace.is_not_black_region(other_region.image):
-            # diffs = [math.fabs(self.means[j] - other_region.means[j])
-            #          for j in self.colorspace.color_indices()]
-            # return 10 * math.sqrt(sum([math.pow(d, 2) for d in diffs])) / \
-            #        self.colorspace.value_range(self.image)
+            sq_diff = 0
+            for index in self.colorspace.color_indices():
+                sq_diff += math.pow(self.means[index] - other_region.means[index], 2)
+            dist = math.sqrt(sq_diff)
+            #return dist * 10 / self.colorspace.value_range(self.image)
+            return dist / 10
+        else:
+            return -1
 
-            lab1 = list(self.means)
-            lab1[0] = 0
-            lab2 = list(other_region.means)
-            lab2[0] = 0
-            dist = deltaE_cmc(lab1, lab2, 2, 1)
-            return dist * 10 / self.colorspace.value_range(self.image)
+    def variance_distance(self, other_region):
+        if not self.colorspace == other_region.colorspace:
+            raise Exception
+
+        if self.colorspace.is_not_black_region(other_region.image):
+
+            idxs = self.colorspace.color_indices()
+            vars1 =np.array([self.variances[i] for i in idxs])
+            vars2 =np.array([other_region.variances[i] for i in idxs])
+            diff2 = vars1 - vars2
+            dist = math.sqrt(cv2.sumElems(diff2*diff2)[0])
+            return dist / 10
+        else:
+            return -1
+
+    def mahalanobi_distance(self, other_region):
+#float fd::Segment::distance(const Segment& other, const cv::Vec3f& minimums) const
+# 247 {
+# 248   cv::Matx33f sigma_sum = (sigma_hsv + other.sigma_hsv);
+# 249   Classifier::set_minimum_cov(sigma_sum, minimums);
+# 250
+# 251   cv::Vec3f diff = hsv_diff(mu_hsv, other.mu_hsv);
+# 252   cv::Vec<float,1> result = (diff.t() * sigma_sum.inv() * diff);
+        #--------------------------------------
+        if not self.colorspace == other_region.colorspace:
+            raise Exception
+
+        if self.colorspace.is_not_black_region(other_region.image):
+            idxs = self.colorspace.color_indices()
+            means1 =np.array([self.means[i] for i in idxs])
+            means2 =np.array([other_region.means[i] for i in idxs])
+            means_diff = means1 - means2
+            cov_mat_sum = self.covariance + other_region.covariance
+            inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
+            dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
+            dist2 = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            return np.array(dist)[0][0]
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
         color_distance = self.color_distance(other_region)
         if color_distance >= 0:
-            spatial_distance = self.spatial_distance(other_region)
+            variance_distance = self.variance_distance(other_region)
             return region_distance_balance * color_distance + \
-                   (1 - region_distance_balance) * spatial_distance
+                   (1 - region_distance_balance) * variance_distance
         else:
             return -1
 
@@ -140,8 +219,16 @@ class DistanceFinder(object):
         # to standarize spatial distance
         self.diagonal = pow(pow(self.image.shape[0], 2) + pow(self.image.shape[1], 2), 1 / 2.0)
         self.matches = {}
+        min_dist = -1
+        best_match = (None, None)
         for shadow_region in self.shadow_regions:
-            self.matches[shadow_region] = self.get_closest_region(shadow_region)
+            matching_region, dist = self.get_closest_region(shadow_region)
+            self.matches[shadow_region] = matching_region if dist < self.settings['max_color_dist'] else None
+            if min_dist == -1 or dist < min_dist:
+                min_dist = dist
+                best_match = (shadow_region, matching_region)
+        if min_dist >= self.settings['max_color_dist']:
+            self.matches[best_match[0]] = best_match[1]
 
     def run(self, mono_image):
         mono_image = np.float64(equalize_hist_3d(mono_image))
@@ -198,7 +285,7 @@ class DistanceFinder(object):
 
     def get_closest_region(self, shadow_region):
         closest_region = None
-        distance = 100000000
+        distance = 99999999999999999999999999999999999999999999999999999999999999999999999999
         for light_region in self.light_regions:
             new_distance = \
                 shadow_region.balanced_distance(light_region,
@@ -206,7 +293,7 @@ class DistanceFinder(object):
             if 0 <= new_distance < distance:
                 distance = new_distance
                 closest_region = light_region
-        return closest_region if distance < self.settings['max_color_dist'] else None
+        return closest_region, distance
 
     def print_region_matches(self, printer):
         i = 0
@@ -295,10 +382,10 @@ class DistanceFinder(object):
                         self.image.shape[1], 3), np.uint8)
 
         for shadow in self.shadow_regions:
-            color = [random.randint(0, 255) for _ in xrange(3)]
-            out = draw_boundaries(out, shadow.mask, color)
+            #color = [random.randint(0, 255) for _ in xrange(3)]
+            out = draw_region(out, shadow.mask)
 
-        for light in self.shadow_regions:
+        for light in self.light_regions:
             out = draw_region(out, light.mask)
 
         return out

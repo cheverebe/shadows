@@ -57,7 +57,7 @@ class DistanceFindStandalone(StepStandalone):
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
 
-        cv2.createTrackbar('space<->color',
+        cv2.createTrackbar('variance<->color',
                            self.window_name,
                            int(self.settings['region_distance_balance']*100),
                            100,
