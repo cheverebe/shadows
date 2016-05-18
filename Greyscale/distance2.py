@@ -16,11 +16,13 @@ class Region(object):
         #
         # Calculate means over rgb image for mahalanobis
         #
-        #self.image = image
-        #self.mask = mask.copy()
-        #self.values = self.calculate_region_values()
-        #self.means_rgb = self.calculate_means()
-        #self.means_rgb_lab = colorspace.pre_process_image(np.uint8(np.array(self.means_rgb).reshape([1,1,3])))
+        self.image = image
+        self.mask = mask.copy()
+        self.values = self.calculate_region_values()
+        self.means_rgb = self.calculate_means()
+        self.means_rgb_lab = colorspace.pre_process_image(np.uint8(np.array(self.means_rgb).reshape([1,1,3])))
+
+        self.means_rgb_lab = self.means_rgb_lab[0][0]
         #--------------------------
         if colorspace:
             self.image = colorspace.pre_process_image(image)
@@ -33,7 +35,7 @@ class Region(object):
         self.values = self.calculate_region_values()
         self.means = self.calculate_means()
         self.variances = self.calculate_standard_deviation()
-        #self.covariance = self.calculate_covariance_matrix()
+        self.covariance = self.calculate_covariance_matrix()
         self.centroid = self.get_centroid()
         self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1 / 2.0)
 
@@ -66,7 +68,7 @@ class Region(object):
             for i in self.colorspace.color_indices():
                 value = self.values[i]
                 mean = self.means_rgb_lab[i]
-                v = (value - mean) / (N-1)
+                v = np.float64(value - mean) / (N-1)
                 s.append(cv2.sumElems(v)[0])
             s = np.array(s)
             return np.array(np.matrix(s).transpose() * s)
@@ -155,13 +157,13 @@ class Region(object):
             return -1
 
     def mahalanobi_distance(self, other_region):
-#float fd::Segment::distance(const Segment& other, const cv::Vec3f& minimums) const
-# 247 {
-# 248   cv::Matx33f sigma_sum = (sigma_hsv + other.sigma_hsv);
-# 249   Classifier::set_minimum_cov(sigma_sum, minimums);
-# 250
-# 251   cv::Vec3f diff = hsv_diff(mu_hsv, other.mu_hsv);
-# 252   cv::Vec<float,1> result = (diff.t() * sigma_sum.inv() * diff);
+        #float fd::Segment::distance(const Segment& other, const cv::Vec3f& minimums) const
+        # 247 {
+        # 248   cv::Matx33f sigma_sum = (sigma_hsv + other.sigma_hsv);
+        # 249   Classifier::set_minimum_cov(sigma_sum, minimums);
+        # 250
+        # 251   cv::Vec3f diff = hsv_diff(mu_hsv, other.mu_hsv);
+        # 252   cv::Vec<float,1> result = (diff.t() * sigma_sum.inv() * diff);
         #--------------------------------------
         if not self.colorspace == other_region.colorspace:
             raise Exception
@@ -174,12 +176,13 @@ class Region(object):
             cov_mat_sum = self.covariance + other_region.covariance
             inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
             dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
-            dist2 = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            #dist2 = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
             return np.array(dist)[0][0]
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
+        return self.mahalanobi_distance(other_region)
         color_distance = self.color_distance(other_region)
         if color_distance >= 0:
             variance_distance = self.variance_distance(other_region)

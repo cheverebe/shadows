@@ -12,30 +12,37 @@ class ColorSegmentator(object):
 
     @staticmethod
     def smooth(x,window_len=11,window='hanning'):
-        if x.ndim != 1:
-            raise ValueError, "smooth only accepts 1 dimension arrays."
+        radius=int(window_len/2)
+        res = list(x[:radius-1])
 
-        if x.size < window_len:
-            raise ValueError, "Input vector needs to be bigger than window size."
-
-        if window_len<3:
-            return x
-
-        if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-            raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
-
-        s=np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
-        if window == 'flat': #moving average
-            w=np.ones(window_len,'d')
-        else:
-            w=eval('np.'+window+'(window_len)')
-
-        y=np.convolve(w/w.sum(),s,mode='valid')
-        return y
+        r2 = [int(sum(x[i-radius:i+radius])/(2*radius+1)) for i in range(radius, len(x-radius-1))]
+        res += r2
+        res += list(x[len(x)-radius+1:])
+        return np.array(res)
+        # if x.ndim != 1:
+        #     raise ValueError, "smooth only accepts 1 dimension arrays."
+        #
+        # if x.size < window_len:
+        #     raise ValueError, "Input vector needs to be bigger than window size."
+        #
+        # if window_len<3:
+        #     return x
+        #
+        # if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        #     raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        #
+        # s=np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
+        # if window == 'flat': #moving average
+        #     w=np.ones(window_len,'d')
+        # else:
+        #     w=eval('np.'+window+'(window_len)')
+        #
+        # y=np.convolve(w/w.sum(),s,mode='valid')
+        # return y
 
     @staticmethod
     def peaks(a):
-        min_diff = 500
+        min_diff = 100
 
         bools = np.r_[True, a[1:] > a[:-1]] & np.r_[a[:-1] > a[1:], True]
         pks = [i for i in range(len(bools)) if bools[i]]
@@ -55,6 +62,23 @@ class ColorSegmentator(object):
                 out.append(ac)
         out.append(255)
         return out
+
+    @staticmethod
+    def plot_histogram(hist, max=None, img=None, color=(255,255,255)):
+        if img is None:
+            img = np.zeros((256*3, 600, 3))
+        pts = [int(val*600/max) for val in hist]
+        pts = [[3*i, pts[i]] for i in range(len(pts))]
+        pts = np.array(pts, np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        img = cv2.polylines(img, [pts], False, color)
+        return img
+
+    @staticmethod
+    def plot_peak(peaks, img):
+        for peak in peaks:
+            img = cv2.line(img, (peak*3, 0), (peak*3, 600),(0,255,0))
+        return img
 
     @staticmethod
     def apply_mask(image, mask):
@@ -90,7 +114,7 @@ class ColorSegmentator(object):
         return big_regions
 
     def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
-        return self.segment_image_new(img, show)
+        return self.segment_image_old(img, show)
 
     def segment_image_new(self, img=cv2.imread('img/road6.png'), show=False):
         #min_size = img.shape[0] * img.shape[1] / self.settings['min_size_factor']
@@ -118,15 +142,16 @@ class ColorSegmentator(object):
 
     def segment_image_old(self, img=cv2.imread('img/road6.png'), show=False):
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        hist = cv2.calcHist([hsv_img], [0], None, [256], [0,256])
+        hist = cv2.calcHist([hsv_img], [0], None, [256], [0,256]).reshape([256])
 
-        # plt.plot(hist, color='k')
-        # plt.xlim([0,256])
-
-        smooth_msft_hist = self.smooth(hist.reshape([256]), 20)
-        # plt.plot(smooth_msft_hist, color='g')
+        m = max(hist)
+        hist_img = self.plot_histogram(hist, m)
+        smooth_msft_hist = self.smooth(hist, 8)
+        hist_img = self.plot_histogram(smooth_msft_hist, m, hist_img, (255,0,0))
 
         hist_peaks = self.peaks(smooth_msft_hist)
+        hist_img = self.plot_peak(hist_peaks, hist_img)
+        cv2.imwrite('hist.png', hist_img)
         if show:
             print(hist_peaks)
             cv2.imshow('img', img)
