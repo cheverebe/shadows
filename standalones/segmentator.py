@@ -1,3 +1,4 @@
+import random
 import cv2
 import numpy as np
 from boudary_drawer import draw_boundaries, draw_region
@@ -24,6 +25,9 @@ class SegmentatorStandalone(StepStandalone):
         for segment in segmentation:
             boundaries = draw_boundaries(boundaries, segment)
             regions = draw_region(regions, segment)
+        for segment in segmentation:
+            color = tuple([random.randint(0, 255) for _ in xrange(3)])
+            regions = draw_boundaries(regions, segment, color)
         return np.concatenate((boundaries, regions), axis=1)
 
     def update_img(self):

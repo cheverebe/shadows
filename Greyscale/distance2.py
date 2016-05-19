@@ -175,14 +175,15 @@ class Region(object):
             means_diff = means1 - means2
             cov_mat_sum = self.covariance + other_region.covariance
             inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
-            dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
-            #dist2 = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
-            return np.array(dist)[0][0]
+            #dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
+            #return np.array(dist)[0][0]
+            dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            return dist
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
-        return self.mahalanobi_distance(other_region)
+        #return self.mahalanobi_distance(other_region)
         color_distance = self.color_distance(other_region)
         if color_distance >= 0:
             variance_distance = self.variance_distance(other_region)

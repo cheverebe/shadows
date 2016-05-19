@@ -19,26 +19,6 @@ class ColorSegmentator(object):
         res += r2
         res += list(x[len(x)-radius+1:])
         return np.array(res)
-        # if x.ndim != 1:
-        #     raise ValueError, "smooth only accepts 1 dimension arrays."
-        #
-        # if x.size < window_len:
-        #     raise ValueError, "Input vector needs to be bigger than window size."
-        #
-        # if window_len<3:
-        #     return x
-        #
-        # if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        #     raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
-        #
-        # s=np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
-        # if window == 'flat': #moving average
-        #     w=np.ones(window_len,'d')
-        # else:
-        #     w=eval('np.'+window+'(window_len)')
-        #
-        # y=np.convolve(w/w.sum(),s,mode='valid')
-        # return y
 
     @staticmethod
     def peaks(a):
@@ -85,15 +65,22 @@ class ColorSegmentator(object):
         return cv2.bitwise_and(image, cv2.merge([mask, mask, mask]))
 
     @staticmethod
-    def generate_threshhold_mask(image, minval, maxval):
+    def generate_new_threshhold_mask(image, val):
         image = np.uint8(image)
-        retval, mask_lw_high = cv2.threshold(image, maxval, 255, cv2.THRESH_BINARY)
-        mask_lw_high = 255 - mask_lw_high
-        retval, mask_hg_min = cv2.threshold(image, minval-1, 255, cv2.THRESH_BINARY_INV)
-        mask_hg_min = 255 - mask_hg_min
+        retval, mask_le_high = cv2.threshold(image, val, 255, cv2.THRESH_BINARY_INV)
+        retval, mask_gt_min = cv2.threshold(image, val-1, 255, cv2.THRESH_BINARY)
         # erase mask values
 
-        return cv2.bitwise_and(mask_hg_min, mask_lw_high)
+        return cv2.bitwise_and(mask_gt_min, mask_le_high)
+
+    @staticmethod
+    def generate_threshhold_mask(image, minval, maxval):
+        image = np.uint8(image)
+        retval, mask_ge_min = cv2.threshold(image, minval-1, 255, cv2.THRESH_BINARY)
+        retval, mask_lw_max = cv2.threshold(image, maxval-1, 255, cv2.THRESH_BINARY_INV)
+        # erase mask values
+
+        return cv2.bitwise_and(mask_lw_max, mask_ge_min)
 
     def get_region_masks(self, shadow_mask):
         mask = shadow_mask.copy()
@@ -114,7 +101,7 @@ class ColorSegmentator(object):
         return big_regions
 
     def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
-        return self.segment_image_old(img, show)
+        return self.segment_image_new(img, show)
 
     def segment_image_new(self, img=cv2.imread('img/road6.png'), show=False):
         #min_size = img.shape[0] * img.shape[1] / self.settings['min_size_factor']
@@ -134,7 +121,7 @@ class ColorSegmentator(object):
 
         contours = []
         for i in range(segments.min(), segments.max()+1):
-            mask = self.generate_threshhold_mask(segments, i, i)
+            mask = self.generate_new_threshhold_mask(segments, i)
             contours.append(mask)
         #m = mark_boundaries(black, segments)
 
@@ -165,11 +152,11 @@ class ColorSegmentator(object):
         for i in range(len(hist_peaks)-1):
             mask = self.generate_threshhold_mask(h, hist_peaks[i], hist_peaks[i+1])
             accum += mask
-            mask = cv2.dilate(mask, kernel_1, iterations=3)
-            mask = cv2.erode(mask, kernel_1, iterations=3)
+            mask = cv2.dilate(mask, kernel_1, iterations=2)
+            mask = cv2.erode(mask, kernel_1, iterations=2)
             if self.settings['dil_erod_kernel_size_segmentator'] > 0:
-                mask = cv2.erode(mask, kernel_2, iterations=3)
-                mask = cv2.dilate(mask, kernel_2, iterations=3)
+                mask = cv2.erode(mask, kernel_2, iterations=1)
+                mask = cv2.dilate(mask, kernel_2, iterations=1)
 
             cv2.imwrite('dbg_img/color_mask_'+str((hist_peaks[i], hist_peaks[i+1]))+'.png', mask)
 
