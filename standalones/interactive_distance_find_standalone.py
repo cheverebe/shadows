@@ -5,15 +5,38 @@ from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
 from standalones.step_standalone import StepStandalone
 
 
-class DistanceFindStandalone(StepStandalone):
+class InteractiveDistanceFindStandalone(StepStandalone):
     colorspaces_names = ['BGRColorSpace', 'LABColorSpace', 'HSVColorSpace']
     default_settings = {
         'distance_colorspace_name': 'HSVColorSpace',
         'region_distance_balance': 0.5,
         'max_color_dist': 0.3
     }
-    window_name = 'Min Distance finder tester'
+    window_name = 'Invariant image tester'
     processor_class = DistanceFinder
+
+    WAITING = 0
+    FIRST_CLICK = 1
+    SECOND_CLICK = 2
+
+    def __init__(self):
+        self.status = self.WAITING
+        self.clicks = [[], []]
+        self.needs_reinitialize = True
+        super(InteractiveDistanceFindStandalone, self).__init__()
+        cv2.setMouseCallback(self.window_name, self.handle_click)
+
+    def handle_click(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if self.status == self.WAITING or self.status == self.SECOND_CLICK:
+                self.status = self.FIRST_CLICK
+                self.clicks[0] = [x, y]
+            elif self.status == self.FIRST_CLICK:
+                self.status = self.SECOND_CLICK
+                self.clicks[1] = [x, y]
+            print self.status
+            self.needs_reinitialize = False
+            self.update_screen()
 
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()
@@ -26,11 +49,21 @@ class DistanceFindStandalone(StepStandalone):
                                     self.settings)
 
     def update_img(self):
-        self.processor.initialize_regions()
-        matches = self.processor.region_matches_image()
-        regions = self.processor.segmentation_image()
-        self.processed_img = np.concatenate((matches,
-                                             regions), axis=1)
+        print 'WAIT'
+        if self.needs_reinitialize:
+            self.processor.initialize_regions()
+
+        region_a = None
+        region_b = None
+        if self.status != self.WAITING:
+            region_a = self.processor.region_for(self.clicks[0])
+        if self.status == self.SECOND_CLICK:
+            region_b = self.processor.region_for(self.clicks[1])
+        image = self.processor.distance_image(region_a, region_b)
+        self.processed_img = image
+        print 'READY'
+        self.needs_reinitialize = True
+
 
     def region_distance_balance_callback(self, value):
         value /= 100.0
@@ -75,5 +108,5 @@ class DistanceFindStandalone(StepStandalone):
                            len(self.colorspaces_names)-1,
                            self.colorspace_callback)
 
-DistanceFindStandalone().run()
+InteractiveDistanceFindStandalone().run()
 cv2.destroyAllWindows()

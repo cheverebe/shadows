@@ -170,20 +170,20 @@ class Region(object):
 
         if self.colorspace.is_not_black_region(other_region.image):
             idxs = self.colorspace.color_indices()
-            means1 =np.array([self.means[i] for i in idxs])
-            means2 =np.array([other_region.means[i] for i in idxs])
+            means1 = np.array([self.means[i] for i in idxs])
+            means2 = np.array([other_region.means[i] for i in idxs])
             means_diff = means1 - means2
             cov_mat_sum = self.covariance + other_region.covariance
             inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
-            #dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
-            #return np.array(dist)[0][0]
-            dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
-            return dist
+            dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
+            return np.array(dist)[0][0]
+            #dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            #return dist
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
-        #return self.mahalanobi_distance(other_region)
+        return self.mahalanobi_distance(other_region)
         color_distance = self.color_distance(other_region)
         if color_distance >= 0:
             variance_distance = self.variance_distance(other_region)
@@ -335,6 +335,44 @@ class DistanceFinder(object):
                             displaced_centroid, font, 0.5, color)
 
         return out
+
+    def distance_image(self, region_a=None, region_b=None):
+        out = self.image.copy()
+        white = [0, 0, 0]
+        for shadow in self.shadow_regions:
+            out = draw_boundaries(out, shadow.mask, white)
+        for light in self.light_regions:
+            out = draw_boundaries(out, light.mask, white)
+        if region_a is not None:
+            color = [random.randint(0, 255) for _ in xrange(3)]
+            out = draw_boundaries(out, region_a.mask, color)
+            if region_b is not None:
+                radius = 4
+                thickness = 2
+                cv2.circle(out, region_a.get_centroid(),
+                           radius, color, thickness)
+                out = draw_boundaries(out, region_b.mask)
+                cv2.circle(out, region_b.get_centroid(),
+                           radius, color, thickness)
+                cv2.line(out, region_a.get_centroid(),
+                         region_b.get_centroid(), color, thickness)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                distance = region_a.balanced_distance(region_b,
+                                                      self.settings['region_distance_balance'])
+                displaced_centroid = (region_a.get_centroid()[0] + 15,
+                                      region_a.get_centroid()[1])
+                cv2.putText(out, str(distance)[:5],
+                            displaced_centroid, font, 0.5, color)
+
+        return out
+
+    def region_for(self, point):
+        for shadow in self.shadow_regions:
+            if shadow.mask[point[1]][point[0]] > 0:
+                return shadow
+        for light in self.light_regions:
+            if light.mask[point[1]][point[0]] > 0:
+                return light
 
     def mono_distance_image(self, image):
         out = equalize_hist_3d(image)
