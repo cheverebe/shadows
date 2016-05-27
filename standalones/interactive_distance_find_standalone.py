@@ -42,6 +42,7 @@ class InteractiveDistanceFindStandalone(StepStandalone):
         pip = ShadowDetectionPipeline()
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
 
+        cv2.imwrite('dbg_img/dilated_shadow_mask.png', dilated_shadow_mask)
         colorspace = self.get_colorspace()
         return self.processor_class(self.original_img,
                                     dilated_shadow_mask,

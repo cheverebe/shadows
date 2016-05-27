@@ -14,37 +14,36 @@ class AngleFinderStandalone(StepStandalone):
         self.dist_finder = 0
         super(AngleFinderStandalone, self).__init__()
 
-    def pre_process_image(self):
-        img = self.original_img
-
-        iig = self.processor
-        log_chrom = iig.log_chrom_image(img)
-        two_dim = iig.project_to_2d(log_chrom)
+    def initialize_processor(self):
+        pip = ShadowDetectionPipeline()
+        dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
 
         colorspace = self.get_colorspace()
-
-        pip = ShadowDetectionPipeline(self.settings)
-        dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(img)
-        self.dist_finder = DistanceFinder(img,
+        self.dist_finder = DistanceFinder(self.original_img,
                                           dilated_shadow_mask,
                                           colorspace,
                                           self.settings)
+        return super(AngleFinderStandalone, self).initialize_processor()
 
+    def pre_process_image(self):
+        img = self.original_img
+
+        inv_img_gen = self.processor
+        log_chrom = inv_img_gen.log_chrom_image(img)
+        two_dim = inv_img_gen.project_to_2d(log_chrom)
         # FIND MIN ANGLE
-        min_mono = []
 
         angles = xrange(0, 180)
         min_angle = 0
         min_distance = -1
 
         for angle in angles:
-            mono = iig.project_into_one_d(two_dim, angle)
+            mono = inv_img_gen.project_into_one_d(two_dim, angle)
             distance = self.dist_finder.run(np.float64(mono))
 
             print str("%d, %s" % (angle, repr(distance)))
             if min_distance == -1 or distance < min_distance:
                 min_distance = distance
-                min_mono = mono
                 min_angle = angle
 
         self.angle = min_angle

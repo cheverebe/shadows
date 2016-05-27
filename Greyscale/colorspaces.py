@@ -45,6 +45,9 @@ class BGRColorSpace(ColorSpace):
     def light_indices(self,):
         return [0, 1, 2]
 
+    def channels_count(self):
+        return 3
+
 
 class LABColorSpace(ColorSpace):
     def __init__(self):
@@ -64,6 +67,9 @@ class LABColorSpace(ColorSpace):
 
     def light_indices(self,):
         return [0]
+
+    def channels_count(self):
+        return 3
 
 
 class HSVColorSpace(ColorSpace):
@@ -85,6 +91,9 @@ class HSVColorSpace(ColorSpace):
     def light_indices(self,):
         return [2]
 
+    def channels_count(self):
+        return 3
+
 
 class GrayscaleColorSpace(ColorSpace):
     def __init__(self):
@@ -104,3 +113,6 @@ class GrayscaleColorSpace(ColorSpace):
 
     def light_indices(self):
         return [0]
+
+    def channels_count(self):
+        return 1

@@ -15,6 +15,10 @@ class DistanceFindStandalone(StepStandalone):
     window_name = 'Min Distance finder tester'
     processor_class = DistanceFinder
 
+    def __init__(self):
+        self.first = True
+        super(DistanceFindStandalone, self).__init__()
+
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
@@ -26,7 +30,10 @@ class DistanceFindStandalone(StepStandalone):
                                     self.settings)
 
     def update_img(self):
-        self.processor.initialize_regions()
+        if self.first:
+            self.first = False
+        else:
+            self.processor.initialize_regions()
         matches = self.processor.region_matches_image()
         regions = self.processor.segmentation_image()
         self.processed_img = np.concatenate((matches,

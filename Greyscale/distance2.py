@@ -20,8 +20,11 @@ class Region(object):
         self.mask = mask.copy()
         self.values = self.calculate_region_values()
         self.means_rgb = self.calculate_means()
-        self.means_rgb_lab = colorspace.pre_process_image(np.uint8(np.array(self.means_rgb).reshape([1,1,3])))
-
+        try:
+            self.means_rgb_lab = colorspace.pre_process_image(
+                np.uint8(np.array(self.means_rgb).reshape([1, 1, colorspace.channels_count()])))
+        except:
+            pass
         self.means_rgb_lab = self.means_rgb_lab[0][0]
         #--------------------------
         if colorspace:
@@ -175,22 +178,24 @@ class Region(object):
             means_diff = means1 - means2
             cov_mat_sum = self.covariance + other_region.covariance
             inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
-            dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
-            return np.array(dist)[0][0]
-            #dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
-            #return dist
+            #dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
+            #return np.array(dist)[0][0]
+            dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            return dist
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
-        return self.mahalanobi_distance(other_region)
-        color_distance = self.color_distance(other_region)
-        if color_distance >= 0:
-            variance_distance = self.variance_distance(other_region)
-            return region_distance_balance * color_distance + \
-                   (1 - region_distance_balance) * variance_distance
+        if self.colorspace.channels_count() > 1:
+            return self.mahalanobi_distance(other_region)
         else:
-            return -1
+            color_distance = self.color_distance(other_region)
+            if color_distance >= 0:
+                variance_distance = self.variance_distance(other_region)
+                return region_distance_balance * color_distance + \
+                       (1 - region_distance_balance) * variance_distance
+            else:
+                return -1
 
     def showable_image(self):
         return self.colorspace.post_process_image(self.image)
@@ -225,9 +230,15 @@ class DistanceFinder(object):
         self.matches = {}
         min_dist = -1
         best_match = (None, None)
+        i = 0
         for shadow_region in self.shadow_regions:
             matching_region, dist = self.get_closest_region(shadow_region)
-            self.matches[shadow_region] = matching_region if dist < self.settings['max_color_dist'] else None
+            if dist < self.settings['max_color_dist']:
+                self.matches[shadow_region] = matching_region
+                i += 1
+                cv2.imwrite('dbg_img/matching-%d.png' % i, shadow_region.mask)
+            else:
+                self.matches[shadow_region] = None
             if min_dist == -1 or dist < min_dist:
                 min_dist = dist
                 best_match = (shadow_region, matching_region)
@@ -275,12 +286,26 @@ class DistanceFinder(object):
         for i in range(len(contours)):
             blank = np.zeros((main_mask.shape[0], main_mask.shape[1], 1), np.uint8)
             region_mask = cv2.drawContours(blank, contours, i, 255, -1)
-            for color_mask in self.color_region_masks:
-                subregion = self.apply_multi_mask(region_mask, color_mask)
-                s = cv2.sumElems(subregion / 255)[0]
-                region = Region(self.image, subregion, colorspace)
-                if s > min_size:
-                    big_regions.append(region)
+            #clean the mask because detects light and shadow contours
+            region_mask = self.apply_multi_mask(region_mask, main_mask)
+            #avoid unnecesary processing
+            s = cv2.sumElems(region_mask / 255)[0]
+            if s > min_size:
+                for color_mask in self.color_region_masks:
+                    subregions = self.apply_multi_mask(region_mask, color_mask)
+
+                    #avoid unnecesary processing
+                    s = cv2.sumElems(subregions / 255)[0]
+                    if s > min_size:
+                        subimage, subcontours, subhierarchy = cv2.findContours(subregions, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                        for j in range(len(subcontours)):
+                            blank = np.zeros((main_mask.shape[0], main_mask.shape[1]), np.uint8)
+                            subregion_mask = cv2.drawContours(blank, subcontours, j, 255, -1)
+                            #avoid unnecesary processing
+                            s = cv2.sumElems(subregion_mask / 255)[0]
+                            if s > min_size:
+                                region = Region(self.image, subregion_mask, colorspace)
+                                big_regions.append(region)
 
         return big_regions
 
@@ -316,7 +341,7 @@ class DistanceFinder(object):
             light = self.matches[shadow]
             color = [random.randint(0, 255) for _ in xrange(3)]
             out = draw_boundaries(out, shadow.mask, color)
-            if light >= 0:
+            if light is not None:
                 radius = 4
                 thickness = 2
                 cv2.circle(out, shadow.get_centroid(),
@@ -399,7 +424,7 @@ class DistanceFinder(object):
 
             light_region = self.matches[shadow_region]
 
-            if light_region:
+            if light_region is not None:
                 mono_light = mono_light_regions[light_region]
                 radius = 4
                 thickness = 2

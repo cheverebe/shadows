@@ -123,6 +123,7 @@ class ColorSegmentator(object):
         for i in range(segments.min(), segments.max()+1):
             mask = self.generate_new_threshhold_mask(segments, i)
             contours.append(mask)
+
         #m = mark_boundaries(black, segments)
 
         return contours
@@ -170,7 +171,6 @@ class ColorSegmentator(object):
                 for submask in submasks:
                     cv2.imshow('mask_'+str(i)+"_"+str(j), self.apply_mask(img,submask))
                     j += 1
-        cv2.imwrite('dbg_img/accum.png', accum)
 
         # plt.show()
 
