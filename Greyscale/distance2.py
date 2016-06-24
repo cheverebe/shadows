@@ -3,7 +3,6 @@ import random
 import cv2
 import numpy as np
 import math
-from skimage.color import deltaE_cie76, deltaE_ciede2000, deltaE_cmc
 from Greyscale.colorspaces import GrayscaleColorSpace
 from boudary_drawer import draw_boundaries, draw_region
 from color_segmentator import ColorSegmentator
@@ -18,14 +17,14 @@ class Region(object):
         #
         self.image = image
         self.mask = mask.copy()
-        self.values = self.calculate_region_values()
-        self.means_rgb = self.calculate_means()
-        try:
-            self.means_rgb_lab = colorspace.pre_process_image(
-                np.uint8(np.array(self.means_rgb).reshape([1, 1, colorspace.channels_count()])))
-        except:
-            pass
-        self.means_rgb_lab = self.means_rgb_lab[0][0]
+        # self.values = self.calculate_region_values()
+        # self.means_rgb = self.calculate_means()
+        # try:  #todo: creo q no hace falta
+        #     self.means_rgb_lab = colorspace.pre_process_image(
+        #         np.uint8(np.array(self.means_rgb).reshape([1, 1, colorspace.channels_count()])))
+        # except:
+        #     pass
+        # self.means_rgb_lab = self.means_rgb_lab[0][0]
         #--------------------------
         if colorspace:
             self.image = colorspace.pre_process_image(image)
@@ -41,6 +40,13 @@ class Region(object):
         self.covariance = self.calculate_covariance_matrix()
         self.centroid = self.get_centroid()
         self.diagonal = pow(pow(image.shape[0], 2) + pow(image.shape[1], 2), 1 / 2.0)
+        self.hists = self.calculate_hists()
+
+    def calculate_hists(self):
+        hists = []
+        for ch in self.values:
+            hists.append(cv2.calcHist([ch], [0], None, [256], [0, 256]).reshape([256]))
+        return hists
 
     def calculate_means(self):
         means = []
@@ -70,11 +76,11 @@ class Region(object):
             s = []
             for i in self.colorspace.color_indices():
                 value = self.values[i]
-                mean = self.means_rgb_lab[i]
-                v = np.float64(value - mean) / (N-1)
-                s.append(cv2.sumElems(v)[0])
-            s = np.array(s)
-            return np.array(np.matrix(s).transpose() * s)
+                #mean = self.means_rgb_lab[i]
+                mean = cv2.sumElems(value)[0]/N
+                v = np.float64(value - mean)
+                s.append(v)
+            return np.array(np.matrix(s) * np.matrix(s).transpose()) / (N-1)
         else:
             w = len(self.colorspace.color_indices())
             return np.array([[0]*w]*w)
@@ -91,11 +97,14 @@ class Region(object):
         N = cv2.sumElems(self.mask)[0]/255
         if N > 0:
             ch = cv2.split(self.image)
-            values = []
-            for i in range(len(ch)):
-                region_indices = np.where(self.mask)
-                values.append(ch[i][region_indices])
-            return values
+            values = [[] for i in range(len(ch))]
+            region_indices = np.where(self.mask)
+            for i in range(len(region_indices[0])):
+                for j in range(len(ch)):
+                    values[j].append(ch[j][region_indices[0][i]][region_indices[1][i]])
+            # for i in range(len(ch)):
+            #     values.append(ch[i][region_indices])
+            return np.array(values)
         else:
             no_channels = self.image.shape[2] if len(self.image.shape) > 2 else 1
             return [np.array([])]*no_channels
@@ -159,15 +168,7 @@ class Region(object):
         else:
             return -1
 
-    def mahalanobi_distance(self, other_region):
-        #float fd::Segment::distance(const Segment& other, const cv::Vec3f& minimums) const
-        # 247 {
-        # 248   cv::Matx33f sigma_sum = (sigma_hsv + other.sigma_hsv);
-        # 249   Classifier::set_minimum_cov(sigma_sum, minimums);
-        # 250
-        # 251   cv::Vec3f diff = hsv_diff(mu_hsv, other.mu_hsv);
-        # 252   cv::Vec<float,1> result = (diff.t() * sigma_sum.inv() * diff);
-        #--------------------------------------
+    def bhatttacharyya_distance(self, other_region):
         if not self.colorspace == other_region.colorspace:
             raise Exception
 
@@ -176,18 +177,30 @@ class Region(object):
             means1 = np.array([self.means[i] for i in idxs])
             means2 = np.array([other_region.means[i] for i in idxs])
             means_diff = means1 - means2
-            cov_mat_sum = self.covariance + other_region.covariance
+            cov_mat_sum = (self.covariance + other_region.covariance) / 2
             inv_cov_mat_sum = cv2.invert(cov_mat_sum, cv2.DECOMP_SVD)
-            #dist = np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()
-            #return np.array(dist)[0][0]
-            dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+
+            first_term = (np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()) / 8
+            d1 = np.linalg.det(self.covariance)
+            if d1 == 0:
+                d1 = 0.00000000000000000000000001
+            d2 = np.linalg.det(other_region.covariance)
+            if d2 == 0:
+                d2 = 0.00000000000000000000000001
+            ds = np.linalg.det(cov_mat_sum)
+            if ds == 0:
+                ds = 0.00000000000000000000000001
+            second_term = (math.log(ds/math.sqrt(d1*d2))) / 2
+            dist = np.array(first_term)[0][0] + second_term
             return dist
+            #dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
+            #return dist
         else:
             return -1
 
     def balanced_distance(self, other_region, region_distance_balance):
         if self.colorspace.channels_count() > 1:
-            return self.mahalanobi_distance(other_region)
+            return self.bhatttacharyya_distance(other_region)
         else:
             color_distance = self.color_distance(other_region)
             if color_distance >= 0:
@@ -199,6 +212,15 @@ class Region(object):
 
     def showable_image(self):
         return self.colorspace.post_process_image(self.image)
+
+    def plot_histograms(self, name='hists.png'):
+        img = None
+        m = max(self.hists[0])
+        for hist in self.hists:
+            color = [random.randint(0, 255) for _ in xrange(3)]
+            img = ColorSegmentator.plot_histogram(hist, m, img, color)
+
+        cv2.imwrite(name, img)
 
 
 class DistanceFinder(object):
@@ -212,7 +234,12 @@ class DistanceFinder(object):
 
         self.color_region_masks = \
             ColorSegmentator(self.settings).segment_image(self.image)
+
+        self.matches = {}
         self.initialize_regions()
+
+        # to standarize spatial distance
+        self.diagonal = pow(pow(self.image.shape[0], 2) + pow(self.image.shape[1], 2), 1 / 2.0)
 
     def initialize_regions(self):
         self.shadow_regions = self.generate_regions(self.dilated_shadows_mask,
@@ -225,18 +252,14 @@ class DistanceFinder(object):
         self.mono_shadow_regions = []
         self.mono_light_regions = []
 
-        # to standarize spatial distance
-        self.diagonal = pow(pow(self.image.shape[0], 2) + pow(self.image.shape[1], 2), 1 / 2.0)
-        self.matches = {}
+    def find_matches(self):
         min_dist = -1
+
         best_match = (None, None)
-        i = 0
         for shadow_region in self.shadow_regions:
             matching_region, dist = self.get_closest_region(shadow_region)
             if dist < self.settings['max_color_dist']:
                 self.matches[shadow_region] = matching_region
-                i += 1
-                cv2.imwrite('dbg_img/matching-%d.png' % i, shadow_region.mask)
             else:
                 self.matches[shadow_region] = None
             if min_dist == -1 or dist < min_dist:
@@ -246,6 +269,8 @@ class DistanceFinder(object):
             self.matches[best_match[0]] = best_match[1]
 
     def run(self, mono_image):
+        if self.matches == {}:
+            self.find_matches()
         mono_image = np.float64(equalize_hist_3d(mono_image))
         mono_light_regions = {}
         colorspace = GrayscaleColorSpace()
@@ -388,6 +413,7 @@ class DistanceFinder(object):
                                       region_a.get_centroid()[1])
                 cv2.putText(out, str(distance)[:5],
                             displaced_centroid, font, 0.5, color)
+                print distance
 
         return out
 

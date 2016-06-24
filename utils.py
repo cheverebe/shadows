@@ -9,7 +9,7 @@ def equalize_hist_3d(img):
     max_val = img.max()
     min_val = img.min()
     factor = 255.0 / (max_val - min_val)
-    eq_img = (np.floor((i2 - min_val) * factor)).astype(np.uint64sett)
+    eq_img = (np.floor((i2 - min_val) * factor)).astype(np.uint64)
     return cv2.convertScaleAbs(eq_img)
 
 
