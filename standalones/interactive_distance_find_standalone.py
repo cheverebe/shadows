@@ -21,6 +21,8 @@ class InteractiveDistanceFindStandalone(StepStandalone):
 
     def __init__(self):
         self.status = self.WAITING
+        self.region_a = None
+        self.region_b = None
         self.clicks = [[], []]
         self.needs_reinitialize = False
         super(InteractiveDistanceFindStandalone, self).__init__()
@@ -37,6 +39,10 @@ class InteractiveDistanceFindStandalone(StepStandalone):
             print self.status
             self.needs_reinitialize = False
             self.update_screen()
+            if self.status == self.FIRST_CLICK and not self.region_a:
+                self.status = self.WAITING
+            if self.status == self.SECOND_CLICK and not self.region_b:
+                self.status = self.FIRST_CLICK
 
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()
@@ -52,14 +58,12 @@ class InteractiveDistanceFindStandalone(StepStandalone):
         print 'WAIT'
         if self.needs_reinitialize:
             self.processor.initialize_regions()
-
-        region_a = None
-        region_b = None
-        if self.status != self.WAITING:
-            region_a = self.processor.region_for(self.clicks[0])
+        if self.status == self.FIRST_CLICK:
+            self.region_a = self.processor.region_for(self.clicks[0])
+            self.region_b = None
         if self.status == self.SECOND_CLICK:
-            region_b = self.processor.region_for(self.clicks[1])
-        image = self.processor.distance_image(region_a, region_b)
+            self.region_b = self.processor.region_for(self.clicks[1])
+        image = self.processor.distance_image(self.region_a, self.region_b)
         self.processed_img = image
         print 'READY'
         self.needs_reinitialize = True

@@ -20,9 +20,8 @@ class ColorSegmentator(object):
         res += list(x[len(x)-radius+1:])
         return np.array(res)
 
-    @staticmethod
-    def peaks(a):
-        min_diff = 100
+    def peaks(self, a):
+        min_diff = cv2.sumElems(a)[0] / (100 * self.settings['segementation_detail'])
 
         bools = np.r_[True, a[1:] > a[:-1]] & np.r_[a[:-1] > a[1:], True]
         pks = [i for i in range(len(bools)) if bools[i]]
@@ -44,11 +43,13 @@ class ColorSegmentator(object):
         return out
 
     @staticmethod
-    def plot_histogram(hist, max=None, img=None, color=(255,255,255)):
+    def plot_histogram(hist, max=None, img=None, color=(0,0,0)):
+        margin = 20
         if img is None:
-            img = np.zeros((256*3, 600, 3))
+            img = np.ones((256*3, 600+2*margin, 3)) * 255
         pts = [int(val*600/max) for val in hist]
-        pts = [[3*i, pts[i]] for i in range(len(pts))]
+
+        pts = [[3*i, 600 + margin - pts[i]] for i in range(len(pts))]
         pts = np.array(pts, np.int32)
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False, color)
@@ -101,7 +102,7 @@ class ColorSegmentator(object):
         return big_regions
 
     def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
-        return self.segment_image_new(img, show)
+        return self.segment_image_old(img, show)
 
     def segment_image_new(self, img=cv2.imread('img/road6.png'), show=False):
         #min_size = img.shape[0] * img.shape[1] / self.settings['min_size_factor']
@@ -134,7 +135,7 @@ class ColorSegmentator(object):
 
         m = max(hist)
         hist_img = self.plot_histogram(hist, m)
-        smooth_msft_hist = self.smooth(hist, 8)
+        smooth_msft_hist = self.smooth(hist, self.settings['seg_hist_soften'])
         hist_img = self.plot_histogram(smooth_msft_hist, m, hist_img, (255,0,0))
 
         hist_peaks = self.peaks(smooth_msft_hist)
@@ -152,19 +153,25 @@ class ColorSegmentator(object):
         accum = np.zeros((img.shape[0], img.shape[1]), np.uint8)
         for i in range(len(hist_peaks)-1):
             mask = self.generate_threshhold_mask(h, hist_peaks[i], hist_peaks[i+1])
-            accum += mask
             mask = cv2.dilate(mask, kernel_1, iterations=2)
             mask = cv2.erode(mask, kernel_1, iterations=2)
+
             if self.settings['dil_erod_kernel_size_segmentator'] > 0:
                 mask = cv2.erode(mask, kernel_2, iterations=1)
                 mask = cv2.dilate(mask, kernel_2, iterations=1)
 
-            cv2.imwrite('dbg_img/color_mask_'+str((hist_peaks[i], hist_peaks[i+1]))+'.png', mask)
+            mask = cv2.bitwise_and(mask, 255 - accum)
+
+            #cv2.imwrite('dbg_img/color_F_mask_'+str((hist_peaks[i], hist_peaks[i+1]))+'.png', mask)
 
             shape = mask.shape
             shape = [shape[0], shape[1]]
             submasks = self.get_region_masks(mask)
-            result += [submask.reshape(shape) for submask in submasks]
+
+            for submask in submasks:
+                submask = submask.reshape(shape)
+                accum += submask
+                result.append(submask)
 
             if show:
                 j = 0

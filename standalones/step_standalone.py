@@ -1,6 +1,5 @@
 import cv2
 import json
-from clahe import clahe_2
 
 class StepStandalone(object):
     default_settings = {}
@@ -8,7 +7,7 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/artificial2.png'
+        img_path = 'img/kitti.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
         # self.original_img = clahe_2(self.original_img)

@@ -8,6 +8,7 @@ from boudary_drawer import draw_boundaries, draw_region
 from color_segmentator import ColorSegmentator
 from settings import settings
 from LAB.shadow_detection.utils import equalize_hist_3d
+from scipy.spatial import distance as dist
 
 
 class Region(object):
@@ -45,22 +46,23 @@ class Region(object):
     def calculate_hists(self):
         hists = []
         for ch in self.values:
-            hists.append(cv2.calcHist([ch], [0], None, [256], [0, 256]).reshape([256]))
+            total = len(ch)
+            hist = cv2.calcHist([ch], [0], None, [256], [0, 256]).reshape([256])
+            hist = hist * 100 / total
+            hists.append(hist)
         return hists
 
     def calculate_means(self):
         means = []
         for value in self.values:
-            total = cv2.sumElems(value)[0]
-            mean = total / value.shape[0] if value.shape[0] > 0 else 0
-            means.append(mean)
+            means.append(np.average(value))
         return means
 
     def calculate_standard_deviation(self):
         variances = []
         for i in range(len(self.values)):
             value = self.values[i]
-            mean = self.means[i]
+            mean = np.average(value)
             N = len(value)
             if N <= 1:
                 variances.append(0)
@@ -71,19 +73,8 @@ class Region(object):
         return variances
 
     def calculate_covariance_matrix(self):
-        N = len(self.values[0])
-        if N > 1:
-            s = []
-            for i in self.colorspace.color_indices():
-                value = self.values[i]
-                #mean = self.means_rgb_lab[i]
-                mean = cv2.sumElems(value)[0]/N
-                v = np.float64(value - mean)
-                s.append(v)
-            return np.array(np.matrix(s) * np.matrix(s).transpose()) / (N-1)
-        else:
-            w = len(self.colorspace.color_indices())
-            return np.array([[0]*w]*w)
+        v = np.array([self.values[i] for i in self.colorspace.color_indices()])
+        return np.cov(v)
 
     def set_minimum_cov(self, cov, minimums):
         retval, eigenvalues, eigenvectors = cv2.eigen(cov)
@@ -99,11 +90,12 @@ class Region(object):
             ch = cv2.split(self.image)
             values = [[] for i in range(len(ch))]
             region_indices = np.where(self.mask)
-            for i in range(len(region_indices[0])):
-                for j in range(len(ch)):
-                    values[j].append(ch[j][region_indices[0][i]][region_indices[1][i]])
-            # for i in range(len(ch)):
-            #     values.append(ch[i][region_indices])
+            # values2 = [[] for i in range(len(ch))]
+            # for i in range(len(region_indices[0])):
+            #     for j in range(len(ch)):
+            #         values2[j].append(ch[j][region_indices[0][i]][region_indices[1][i]])
+            for j in range(len(ch)):
+                values[j] = ch[j][region_indices]
             return np.array(values)
         else:
             no_channels = self.image.shape[2] if len(self.image.shape) > 2 else 1
@@ -182,21 +174,28 @@ class Region(object):
 
             first_term = (np.matrix(means_diff) * inv_cov_mat_sum[1] * np.matrix(means_diff).transpose()) / 8
             d1 = np.linalg.det(self.covariance)
-            if d1 == 0:
-                d1 = 0.00000000000000000000000001
+            d1 = d1 if d1 != 0 else 0.0000000000000000000000000000001
             d2 = np.linalg.det(other_region.covariance)
-            if d2 == 0:
-                d2 = 0.00000000000000000000000001
+            d2 = d2 if d2 != 0 else 0.0000000000000000000000000000001
             ds = np.linalg.det(cov_mat_sum)
-            if ds == 0:
-                ds = 0.00000000000000000000000001
+            ds = ds if ds != 0 else 0.0000000000000000000000000000001
             second_term = (math.log(ds/math.sqrt(d1*d2))) / 2
             dist = np.array(first_term)[0][0] + second_term
             return dist
-            #dist = cv2.Mahalanobis(means1, means2, inv_cov_mat_sum[1])
-            #return dist
         else:
             return -1
+
+    def hist_dist(self, other_region):
+        total = 0
+        for j in self.colorspace.color_indices():
+            #---------------------------------
+            score = 0
+            hist1 = np.float32(self.hists[j])
+            hist2 = np.float32(other_region.hists[j])
+            total += cv2.compareHist(hist1, hist2, cv2.HISTCMP_BHATTACHARYYA)
+            #total += dist.chebyshev(self.hists[j], other_region.hists[j])
+            #---------------------------------
+        return total
 
     def balanced_distance(self, other_region, region_distance_balance):
         if self.colorspace.channels_count() > 1:
@@ -251,6 +250,7 @@ class DistanceFinder(object):
 
         self.mono_shadow_regions = []
         self.mono_light_regions = []
+        self.find_matches()
 
     def find_matches(self):
         min_dist = -1
