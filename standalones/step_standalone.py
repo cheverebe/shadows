@@ -7,7 +7,7 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/kitti.png'
+        img_path = 'img/kitti/um_000047.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
         # self.original_img = clahe_2(self.original_img)

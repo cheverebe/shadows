@@ -145,6 +145,31 @@ class Region(object):
         else:
             return -1
 
+    def means_relations(self):
+        color_indices = self.colorspace.color_indices()
+        relations = []
+        for i in range(len(color_indices)-1):
+            index_a = color_indices[i]
+            for j in range(i+1, len(color_indices)):
+                index_b = color_indices[j]
+                relations.append(self.means[index_a]-self.means[index_b])
+        return relations
+
+    def means_rel_distance(self, other_region):
+
+        if not self.colorspace == other_region.colorspace:
+            raise Exception
+        mrel_a = self.means_relations()
+        mrel_b = other_region.means_relations()
+        if self.colorspace.is_not_black_region(other_region.image) and len(mrel_a) == len(mrel_b):
+            sq_diff = 0
+            for index in range(len(mrel_a)):
+                sq_diff += math.pow(mrel_a[index] - mrel_b[index], 2)
+            dist = math.sqrt(sq_diff)
+            return dist / 10
+        else:
+            return -1
+
     def variance_distance(self, other_region):
         if not self.colorspace == other_region.colorspace:
             raise Exception
@@ -198,14 +223,17 @@ class Region(object):
         return total
 
     def balanced_distance(self, other_region, region_distance_balance):
-        if self.colorspace.channels_count() > 1:
+        if False and self.colorspace.channels_count() > 1:  #todo: remove False
+            return self.hist_dist(other_region)  #todo: remove
             return self.bhatttacharyya_distance(other_region)
         else:
             color_distance = self.color_distance(other_region)
             if color_distance >= 0:
                 variance_distance = self.variance_distance(other_region)
-                return region_distance_balance * color_distance + \
-                       (1 - region_distance_balance) * variance_distance
+                means_rel_distance = self.means_rel_distance(other_region)
+                return (region_distance_balance * color_distance + \
+                       region_distance_balance * means_rel_distance + \
+                       (1 - region_distance_balance) * variance_distance)
             else:
                 return -1
 

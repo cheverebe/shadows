@@ -68,17 +68,10 @@ class InteractiveDistanceFindStandalone(StepStandalone):
         print 'READY'
         self.needs_reinitialize = True
 
-
     def region_distance_balance_callback(self, value):
         value /= 100.0
         self.processor.settings['region_distance_balance'] = value
         self.settings['region_distance_balance'] = value
-        self.update_screen()
-
-    def max_color_dist_callback(self, value):
-        value /= 100.0
-        self.processor.settings['max_color_dist'] = value
-        self.settings['max_color_dist'] = value
         self.update_screen()
 
     def colorspace_callback(self, value):
@@ -99,11 +92,6 @@ class InteractiveDistanceFindStandalone(StepStandalone):
                            int(self.settings['region_distance_balance']*100),
                            100,
                            self.region_distance_balance_callback)
-        cv2.createTrackbar('max_color_dist',
-                           self.window_name,
-                           int(self.settings['max_color_dist']*100),
-                           100,
-                           self.max_color_dist_callback)
         cv2.createTrackbar('-'.join([n[:3] for n in self.colorspaces_names]),
                            self.window_name,
                            self.colorspaces_names.index(
