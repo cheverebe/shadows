@@ -86,23 +86,28 @@ class StepStandalone(object):
         return colorspace_class()
 
     def select_estimated_road_mask(self):
-        self.points = []
-        cv2.imshow(self.window_name, self.original_img)
-        cv2.setMouseCallback(self.window_name, self.click_and_crop)
-        k = -1
+        mask = None
+        try:
+            mask = cv2.imread("road_mask.png", 0)
+        except:
+            pass
+        if mask is None:
+            self.points = []
+            cv2.imshow(self.window_name, self.original_img)
+            cv2.setMouseCallback(self.window_name, self.click_and_crop)
+            k = -1
 
-        print "Please select points to initialize the road mask and press 'x'"
+            print "Please select points to initialize the road mask and press 'x'"
 
-        while k != ord('x'):
-            k = cv2.waitKey(20)
+            while k != ord('x'):
+                k = cv2.waitKey(20)
 
-        w = self.original_img.shape[0]
-        h = self.original_img.shape[1]
-        p = [self.points]
-        a3 = np.array(p, dtype=np.int32)
-        im = np.zeros([w, h], dtype=np.uint8)
-        mask = cv2.fillPoly(im, a3, 255)
-        cv2.imwrite("estimated_mask.png", mask)
+            w = self.original_img.shape[0]
+            h = self.original_img.shape[1]
+            p = [self.points]
+            a3 = np.array(p, dtype=np.int32)
+            im = np.zeros([w, h], dtype=np.uint8)
+            mask = cv2.fillPoly(im, a3, 255)
         return mask
 
     def click_and_crop(self, event, x, y, flags, param):

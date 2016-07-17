@@ -67,12 +67,16 @@ class MainApp(StepStandalone):
     def update_angle(self, threadName, delay):
         v = 1
         while True:
-            if self.settings['predefined_angle'] >= 180:
-                v = -1
-            if self.settings['predefined_angle'] <= 0:
-                v = 1
-            self.settings['predefined_angle'] += v
-            self.processor.settings['predefined_angle'] += v
+            try:
+                settings_file = open('angle.txt', 'r+')
+                file_content = settings_file.readline()
+                settings_file.close()
+
+                angle = int(file_content)
+            except:
+                angle = self.settings['predefined_angle']
+            self.settings['predefined_angle'] = angle
+            self.processor.settings['predefined_angle'] = angle
             print "-------------------"
             time.sleep(5)
 

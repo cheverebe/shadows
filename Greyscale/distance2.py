@@ -227,7 +227,7 @@ class Region(object):
         return total
 
     def balanced_distance(self, other_region, region_distance_balance):
-        if self.colorspace.channels_count() > 1:
+        if False and self.colorspace.channels_count() > 1:  # todo: remove
             return self.bhatttacharyya_distance(other_region)
         else:
             color_distance = self.color_distance(other_region)
@@ -365,7 +365,7 @@ class DistanceFinder(object):
                             s = cv2.sumElems(subregion_mask / 255)[0]
                             subregion_in_path_mask = self.apply_multi_mask(subregion_mask, self.road_estimated_mask)
                             sp = cv2.sumElems(subregion_in_path_mask / 255)[0]
-                            if s > min_size and sp > (0.5 * s):
+                            if s > min_size and sp > (0.6 * s):
                                 region = Region(self.image, subregion_mask, colorspace)
                                 big_regions.append(region)
 

@@ -18,6 +18,7 @@ class PathFinderStandalone(StepStandalone):
     processor_class = InvariantImageGenerator
 
     def __init__(self):
+        self.road = None
         super(PathFinderStandalone, self).__init__()
 
     def update_img(self):
@@ -31,6 +32,8 @@ class PathFinderStandalone(StepStandalone):
 
         self.processed_img = np.concatenate((edged,
                                              mono_as_bgr), axis=1)
+
+        self.road = path_mask
 
     def angle_callback(self, pos):
         self.settings['predefined_angle'] = pos
@@ -60,6 +63,21 @@ class PathFinderStandalone(StepStandalone):
     def pre_process_image(self):
         log_chrom = self.processor.log_chrom_image(self.original_img)
         return self.processor.project_to_2d(log_chrom)
+
+    def run(self):
+        # Do whatever you want with contours
+        k = None
+        while (not k) or (k == ord('s')):
+            k = cv2.waitKey(0)
+            if k == ord('s'):
+                self.save_settings()
+                self.message = {'text': 'Saved'}
+                self.update_screen()
+            if k == ord('e'):
+                cv2.imwrite("road_mask.png", self.road)
+                self.message = {'text': 'Exported'}
+                self.update_screen()
+
 
 PathFinderStandalone().run()
 cv2.destroyAllWindows()

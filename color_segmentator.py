@@ -120,11 +120,11 @@ class ColorSegmentator(object):
 
         segments = slic(img,
                         n_segments=20,
-                        compactness=0.3,
+                        compactness=0.5,
                         sigma=sigma,
                         convert2lab=True,
                         min_size_factor=0.05,
-                        max_size_factor=0.8)
+                        max_size_factor=0.5)
 
         #segments = quickshift(img, ratio=0.8, max_dist=80)
 
