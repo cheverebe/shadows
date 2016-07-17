@@ -102,7 +102,7 @@ class ColorSegmentator(object):
         return big_regions
 
     def segment_image(self, img=cv2.imread('img/road6.png'), show=False):
-        return self.segment_image_old(img, show)
+        return self.segment_image_new(img, show)
 
     def segment_image_new(self, img=cv2.imread('img/road6.png'), show=False):
         #min_size = img.shape[0] * img.shape[1] / self.settings['min_size_factor']
@@ -111,14 +111,22 @@ class ColorSegmentator(object):
         compactness = self.settings['compactness']
         sigma = self.settings['sigma']
 
-        #segments = felzenszwalb(img, scale=800, sigma=0.5, min_size=800)
-        segments = slic(img,
-                        n_segments=n_segments,
-                        compactness=compactness,
-                        sigma=sigma,
-                        convert2lab=True)
+        #segments = felzenszwalb(img, scale=5000, sigma=0.5, min_size=300)
+        # segments = slic(img,
+        #                 n_segments=n_segments,
+        #                 compactness=compactness,
+        #                 sigma=sigma,
+        #                 convert2lab=True)
 
-        #segments = quickshift(img, kernel_size=3, max_dist=1600, ratio=0.5)
+        segments = slic(img,
+                        n_segments=20,
+                        compactness=0.3,
+                        sigma=sigma,
+                        convert2lab=True,
+                        min_size_factor=0.05,
+                        max_size_factor=0.8)
+
+        #segments = quickshift(img, ratio=0.8, max_dist=80)
 
         contours = []
         for i in range(segments.min(), segments.max()+1):

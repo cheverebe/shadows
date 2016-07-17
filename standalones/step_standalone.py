@@ -1,5 +1,7 @@
 import cv2
 import json
+import numpy as np
+
 
 class StepStandalone(object):
     default_settings = {}
@@ -7,7 +9,7 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/kitti/um_000047.png'
+        img_path = 'img/um_000047.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
         # self.original_img = clahe_2(self.original_img)
@@ -82,3 +84,32 @@ class StepStandalone(object):
         mod = __import__('Greyscale.colorspaces', fromlist=[colorspace_name])
         colorspace_class = getattr(mod, colorspace_name)
         return colorspace_class()
+
+    def select_estimated_road_mask(self):
+        self.points = []
+        cv2.imshow(self.window_name, self.original_img)
+        cv2.setMouseCallback(self.window_name, self.click_and_crop)
+        k = -1
+
+        print "Please select points to initialize the road mask and press 'x'"
+
+        while k != ord('x'):
+            k = cv2.waitKey(20)
+
+        w = self.original_img.shape[0]
+        h = self.original_img.shape[1]
+        p = [self.points]
+        a3 = np.array(p, dtype=np.int32)
+        im = np.zeros([w, h], dtype=np.uint8)
+        mask = cv2.fillPoly(im, a3, 255)
+        cv2.imwrite("estimated_mask.png", mask)
+        return mask
+
+    def click_and_crop(self, event, x, y, flags, param):
+
+        # if the left mouse button was clicked, record the starting
+        # (x, y) coordinates and indicate that cropping is being
+        # performed
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.points.append([x, y])
+            print "Selected %d points" % len(self.points)

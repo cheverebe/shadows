@@ -46,8 +46,12 @@ class Region(object):
     def calculate_hists(self):
         hists = []
         for ch in self.values:
+            ch = np.uint8(ch)
             total = len(ch)
-            hist = cv2.calcHist([ch], [0], None, [256], [0, 256]).reshape([256])
+            try:
+                hist = cv2.calcHist([ch], [0], None, [256], [0, 256]).reshape([256])
+            except:
+                pass
             hist = hist * 100 / total
             hists.append(hist)
         return hists
@@ -223,8 +227,7 @@ class Region(object):
         return total
 
     def balanced_distance(self, other_region, region_distance_balance):
-        if False and self.colorspace.channels_count() > 1:  #todo: remove False
-            return self.hist_dist(other_region)  #todo: remove
+        if self.colorspace.channels_count() > 1:
             return self.bhatttacharyya_distance(other_region)
         else:
             color_distance = self.color_distance(other_region)
@@ -247,20 +250,20 @@ class Region(object):
             color = [random.randint(0, 255) for _ in xrange(3)]
             img = ColorSegmentator.plot_histogram(hist, m, img, color)
 
-        cv2.imwrite(name, img)
-
 
 class DistanceFinder(object):
-    def __init__(self, image, dilated_shadow_mask, colorspace, settings=settings):
+    def __init__(self, image, dilated_shadow_mask, colorspace, road_estimated_mask, settings=settings):
         self.image = image
         self.colorspace = colorspace
         self.shadow_regions = []
         self.light_regions = []
         self.dilated_shadows_mask = dilated_shadow_mask
         self.settings = settings
-
+        print "Segmenting image..."
         self.color_region_masks = \
             ColorSegmentator(self.settings).segment_image(self.image)
+
+        self.road_estimated_mask = road_estimated_mask
 
         self.matches = {}
         self.initialize_regions()
@@ -268,16 +271,21 @@ class DistanceFinder(object):
         # to standarize spatial distance
         self.diagonal = pow(pow(self.image.shape[0], 2) + pow(self.image.shape[1], 2), 1 / 2.0)
 
+        pass
+
     def initialize_regions(self):
+        print "Generating shadow regions..."
         self.shadow_regions = self.generate_regions(self.dilated_shadows_mask,
                                                     self.colorspace)
 
         light_mask = 255 - self.dilated_shadows_mask
+        print "Generating light regions..."
         self.light_regions = self.generate_regions(light_mask, self.colorspace)
         # mono image regions initialization
 
         self.mono_shadow_regions = []
         self.mono_light_regions = []
+        print "Finding matches..."
         self.find_matches()
 
     def find_matches(self):
@@ -346,7 +354,6 @@ class DistanceFinder(object):
             if s > min_size:
                 for color_mask in self.color_region_masks:
                     subregions = self.apply_multi_mask(region_mask, color_mask)
-
                     #avoid unnecesary processing
                     s = cv2.sumElems(subregions / 255)[0]
                     if s > min_size:
@@ -356,7 +363,9 @@ class DistanceFinder(object):
                             subregion_mask = cv2.drawContours(blank, subcontours, j, 255, -1)
                             #avoid unnecesary processing
                             s = cv2.sumElems(subregion_mask / 255)[0]
-                            if s > min_size:
+                            subregion_in_path_mask = self.apply_multi_mask(subregion_mask, self.road_estimated_mask)
+                            sp = cv2.sumElems(subregion_in_path_mask / 255)[0]
+                            if s > min_size and sp > (0.5 * s):
                                 region = Region(self.image, subregion_mask, colorspace)
                                 big_regions.append(region)
 

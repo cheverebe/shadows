@@ -22,11 +22,13 @@ class DistanceFindStandalone(StepStandalone):
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
+        estimated_road_mask = self.select_estimated_road_mask()
 
         colorspace = self.get_colorspace()
         return self.processor_class(self.original_img,
                                     dilated_shadow_mask,
                                     colorspace,
+                                    estimated_road_mask,
                                     self.settings)
 
     def update_img(self):

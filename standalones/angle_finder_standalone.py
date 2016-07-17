@@ -19,9 +19,11 @@ class AngleFinderStandalone(StepStandalone):
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
 
         colorspace = self.get_colorspace()
+        estimated_road_mask = self.select_estimated_road_mask()
         self.dist_finder = DistanceFinder(self.original_img,
                                           dilated_shadow_mask,
                                           colorspace,
+                                          estimated_road_mask,
                                           self.settings)
         return super(AngleFinderStandalone, self).initialize_processor()
 
