@@ -273,6 +273,9 @@ class DistanceFinder(object):
 
         pass
 
+    def has_shadows(self):
+        return len(self.shadow_regions) > 0
+
     def initialize_regions(self):
         print "Generating shadow regions..."
         self.shadow_regions = self.generate_regions(self.dilated_shadows_mask,

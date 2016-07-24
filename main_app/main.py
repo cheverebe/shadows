@@ -3,6 +3,7 @@ import cv2
 import time
 import socket
 
+import os
 import sys
 
 from LAB.shadow_detection.utils import equalize_hist_3d
@@ -15,6 +16,7 @@ import thread
 
 
 class MainApp(StepStandalone):
+    source = 'camera'
     default_settings = {
         'predefined_angle': 80,
         'blur_kernel_size': [5, 5],
@@ -47,10 +49,30 @@ class MainApp(StepStandalone):
         cv2.namedWindow(self.window_name)
 
     def pre_process_image(self):
-        ret, frame = self.cap.read()
-        self.original_img = frame
+        self.original_img = self.get_image()
         log_chrom = self.processor.log_chrom_image(self.original_img)
         return self.processor.project_to_2d(log_chrom)
+
+    def get_image(self):
+        if self.source == 'camera':
+            ret, frame = self.cap.read()
+            return frame
+        else:
+            return self.get_next_sequence_image()
+
+    def get_next_sequence_image(self):
+        img_path = self.sequence_files[self.sequence_index]
+        self.original_img = cv2.imread(img_path)
+        self.sequence_index += 1 if self.sequence_index < len(self.sequence_files) else 0
+
+    def setup_image_sequence(self, source):
+        self.source = source
+        if isinstance(self.source, str) and self.source != 'camera':
+            self.sequence_files = [f for f in os.listdir(self.source)]
+            self.sequence_index = 0
+        else:
+            print "Sequence source must be a folder relative path"
+            raise Exception
 
     def run(self):
         try:

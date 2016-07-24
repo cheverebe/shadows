@@ -38,17 +38,17 @@ class AngleFinderStandalone(StepStandalone):
         angles = xrange(0, 180)
         min_angle = 0
         min_distance = -1
+        if self.dist_finder.has_shadows():
+            for angle in angles:
+                mono = inv_img_gen.project_into_one_d(two_dim, angle)
+                distance = self.dist_finder.run(np.float64(mono))
 
-        for angle in angles:
-            mono = inv_img_gen.project_into_one_d(two_dim, angle)
-            distance = self.dist_finder.run(np.float64(mono))
+                print str("%d, %s" % (angle, repr(distance)))
+                if min_distance == -1 or distance < min_distance:
+                    min_distance = distance
+                    min_angle = angle
 
-            print str("%d, %s" % (angle, repr(distance)))
-            if min_distance == -1 or distance < min_distance:
-                min_distance = distance
-                min_angle = angle
-
-        self.angle = min_angle
+            self.angle = min_angle
         return two_dim
 
     def initialize_windows(self):
@@ -71,5 +71,5 @@ class AngleFinderStandalone(StepStandalone):
         )
         self.processed_img = self.dist_finder.mono_distance_image(self.processed_img)
 
-AngleFinderStandalone().run()
-cv2.destroyAllWindows()
+# AngleFinderStandalone().run()
+# cv2.destroyAllWindows()
