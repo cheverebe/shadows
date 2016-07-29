@@ -88,7 +88,8 @@ class StepStandalone(object):
     def select_estimated_road_mask(self, road_mask_path="road_mask.png"):
         mask = None
         try:
-            mask = cv2.imread(road_mask_path, 0)
+            if road_mask_path is not None:
+                mask = cv2.imread(road_mask_path, 0)
         except:
             pass
         if mask is None:
