@@ -29,6 +29,7 @@ class AngleFinder(AngleFinderStandalone):
         self.original_img = None
         self.img_path = None
         self.road_mask_path = None
+        self.idx = 0
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
@@ -40,28 +41,40 @@ class AngleFinder(AngleFinderStandalone):
             img_path, mask_path = self.get_new_img_path()
         self.img_path = img_path
         self.original_img = cv2.imread(self.source+img_path)
+        while self.original_img is None:
+            self.original_img = cv2.imread(self.source + img_path)
         self.road_mask_path = self.source+mask_path if mask_path is not None else None
 
     def get_new_img_path(self):
         image_files = os.listdir(self.source)
         img_paths = [i for i in image_files if not i.startswith(self.mask_prefix)]
         img_path = img_paths[0] if len(img_paths) > 0 else None
-        mask_path = self.mask_prefix + img_path
+        mask_path = self.mask_prefix + img_path if img_path is not None else None
         mask_path = mask_path if mask_path in image_files else None
         return img_path, mask_path
 
     def select_estimated_road_mask(self):
-        return super(AngleFinder, self).select_estimated_road_mask(self.road_mask_path)
+        clean_after = True if self.road_mask_path is None else False
+        mask = super(AngleFinder, self).select_estimated_road_mask(self.road_mask_path)
+        if clean_after:
+            cv2.destroyAllWindows()
+        return mask
 
     def run(self):
         k = None
         while k != ord('x'):
+            cv2.destroyAllWindows()
             self.get_image()
-            self.processor = self.initialize_processor()
+            try:
+                self.processor = self.initialize_processor()
+            except:
+                pass
 
             self.pre_processed_img = self.pre_process_image()
             self.export_angle()
-            self.update_screen()
+            self.update_img()
+            cv2.imwrite('out/'+str(self.idx)+'.png', self.processed_img)
+            self.idx += 1
             print "angle:%d" % self.angle
             k = cv2.waitKey(20)
 

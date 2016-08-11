@@ -17,7 +17,7 @@ import thread
 
 
 class MainApp(StepStandalone):
-    source = 'img/sequences/1/'
+    source = 'img/sequences/2/'
     angle_file = AngleFinder.angle_file_path
     default_settings = {
         'predefined_angle': None,
@@ -51,7 +51,7 @@ class MainApp(StepStandalone):
         self.settings = self.load_settings()
         self.processor = self.initialize_processor()
 
-        self.initialize_windows()
+        # self.initialize_windows()
 
     def update_img(self):
         mono = self.processor.project_into_predef_angle(self.pre_processed_img)
@@ -83,6 +83,7 @@ class MainApp(StepStandalone):
     def setup_image_sequence(self):
         if isinstance(self.source, str) and self.source != 'camera':
             self.sequence_files = [f for f in os.listdir(self.source)]
+            self.sequence_files.sort()
             self.sequence_index = 0
         else:
             print "Sequence source must be a folder relative path"
@@ -102,6 +103,7 @@ class MainApp(StepStandalone):
             print('Waiting for angle update...')
             time.sleep(5)
         while not self.should_stop(k):
+            cv2.destroyAllWindows()
             self.original_img = self.get_image()
             self.pre_processed_img = self.pre_process_image()
             self.update_img()
@@ -132,7 +134,7 @@ class MainApp(StepStandalone):
                     self.last_ts = ts
                     self.updated_angle = True
                     self.started = True
-                    angle = int(angle_str)
+                    angle = int(angle_str) if angle >= 0 else self.settings['predefined_angle']
                     print('New angle: '+str(angle))
             except:
                 angle = self.settings['predefined_angle']
@@ -186,11 +188,11 @@ class MainApp(StepStandalone):
             img_name = str(ts) + ".png"
 
             print('Exporting '+folder+img_name)
-            cv2.imwrite(folder+img_name, self.original_img)
             if self.started:
                 mask_name = AngleFinder.mask_prefix + img_name
                 print('Exporting '+folder+mask_name)
                 cv2.imwrite(folder+mask_name, self.path_mask)
-                print('Exporting '+'out/mask_'+str(self.sequence_index)+'.png')
-                cv2.imwrite('out/'+str(self.sequence_index)+'.png', self.processed_img)
+                cv2.imwrite('img/out/'+mask_name, self.path_mask)
+            cv2.imwrite(folder+img_name, self.original_img)
+            cv2.imwrite('img/out/'+img_name, self.original_img)
             print('Exported images...')

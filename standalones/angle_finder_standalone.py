@@ -36,7 +36,7 @@ class AngleFinderStandalone(StepStandalone):
         # FIND MIN ANGLE
 
         angles = xrange(0, 180)
-        min_angle = 0
+        min_angle = -1
         min_distance = -1
         if self.dist_finder.has_shadows():
             for angle in angles:
