@@ -13,17 +13,18 @@ class AngleFinderStandalone(StepStandalone):
         self.angle = -1
         self.dist_finder = 0
         super(AngleFinderStandalone, self).__init__()
+        self.estimated_road_mask = None
 
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()
         dilated_shadow_mask, shadow_mask = pip.find_dilated_shadow_mask(self.original_img)
 
         colorspace = self.get_colorspace()
-        estimated_road_mask = self.select_estimated_road_mask()
+        self.estimated_road_mask = self.select_estimated_road_mask()
         self.dist_finder = DistanceFinder(self.original_img,
                                           dilated_shadow_mask,
                                           colorspace,
-                                          estimated_road_mask,
+                                          self.estimated_road_mask,
                                           self.settings)
         return super(AngleFinderStandalone, self).initialize_processor()
 
@@ -38,15 +39,20 @@ class AngleFinderStandalone(StepStandalone):
         angles = xrange(0, 180)
         min_angle = -1
         min_distance = -1
+        first = True
+
         if self.dist_finder.has_shadows():
             for angle in angles:
                 mono = inv_img_gen.project_into_one_d(two_dim, angle)
                 distance = self.dist_finder.run(np.float64(mono))
 
                 print str("%d, %s" % (angle, repr(distance)))
-                if min_distance == -1 or distance < min_distance:
+                if distance < 0:
+                    break
+                if first or distance < min_distance:
                     min_distance = distance
                     min_angle = angle
+                    first = False
 
             self.angle = min_angle
         return two_dim

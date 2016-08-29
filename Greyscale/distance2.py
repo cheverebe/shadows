@@ -227,7 +227,8 @@ class Region(object):
         return total
 
     def balanced_distance(self, other_region, region_distance_balance):
-        if False and self.colorspace.channels_count() > 1:  # todo: remove
+        if self.colorspace.channels_count() > 1:
+            # return self.hist_dist(other_region)  # todo: remove
             return self.bhatttacharyya_distance(other_region)
         else:
             color_distance = self.color_distance(other_region)
@@ -246,9 +247,12 @@ class Region(object):
     def plot_histograms(self, name='hists.png'):
         img = None
         m = max(self.hists[0])
-        for hist in self.hists:
-            color = [random.randint(0, 255) for _ in xrange(3)]
+        colors = [(0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        for i in range(len(self.hists)):
+            hist = self.hists[i]
+            color = colors[i]
             img = ColorSegmentator.plot_histogram(hist, m, img, color)
+        return img
 
 
 class DistanceFinder(object):
@@ -324,16 +328,20 @@ class DistanceFinder(object):
                                                         np.float64(shadow_region.mask),
                                                         colorspace)
 
-        distance = 0
+        distance = -1
+        any_light_region = False
         for shadow_region in self.shadow_regions:
             mono_shadow = mono_shadow_regions[shadow_region]
 
             light_region = self.matches[shadow_region]
 
             if light_region:
+                any_light_region = True
                 mono_light = mono_light_regions[light_region]
-                distance += mono_shadow.color_distance(mono_light)
-        return distance
+                d = mono_shadow.color_distance(mono_light)
+                if distance == -1 or (d >= 0 and d < distance):
+                    distance = d
+        return distance if any_light_region else -1
 
     def apply_mask(self, image, mask):
         return cv2.bitwise_and(image, cv2.merge([mask, mask, mask]))

@@ -12,12 +12,13 @@ from main_app.angle_finder import AngleFinder
 from path_finder import find_path
 from standalones.step_standalone import StepStandalone
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
+from collections import deque
 
 import thread
 
 
 class MainApp(StepStandalone):
-    source = 'img/sequences/2/'
+    source = 'img/sequences/11/'
     angle_file = AngleFinder.angle_file_path
     default_settings = {
         'predefined_angle': None,
@@ -27,6 +28,7 @@ class MainApp(StepStandalone):
     }
     window_name = 'MainApp'
     processor_class = InvariantImageGenerator
+    angle_buffer_max_size = 5
 
     def __init__(self):
         self.socket = None
@@ -34,6 +36,10 @@ class MainApp(StepStandalone):
         self.started = False
         self.updated_angle = False
         self.message = None
+        self.angles = deque()
+        self.masks = deque()
+        self.mask_sizes = deque()
+        self.mono = None
 
         if self.source == 'camera':
             self.cap = cv2.VideoCapture(0)
@@ -54,11 +60,14 @@ class MainApp(StepStandalone):
         # self.initialize_windows()
 
     def update_img(self):
-        mono = self.processor.project_into_predef_angle(self.pre_processed_img)
-        mono = np.uint8(equalize_hist_3d(mono))
+        self.mono = self.processor.project_into_predef_angle(self.pre_processed_img)
+        self.mono = np.uint8(equalize_hist_3d(self.mono))
 
-        b_eq_inv_mono = cv2.blur(mono, tuple(self.settings['blur_kernel_size']))
-        self.path_mask = find_path(b_eq_inv_mono, self.settings)
+        b_eq_inv_mono = cv2.blur(self.mono, tuple(self.settings['blur_kernel_size']))
+        mask = find_path(b_eq_inv_mono, self.settings)
+
+        self.path_mask = self.effective_mask(mask)
+        self.add_mask(mask)
         edged = draw_boundaries(self.original_img, self.path_mask)
 
         self.processed_img = edged
@@ -76,14 +85,15 @@ class MainApp(StepStandalone):
 
     def get_next_sequence_image(self):
         img_path = self.sequence_files[self.sequence_index]
+        print "Reading: " + img_path
         img = cv2.imread(self.source+img_path)
         self.sequence_index += 1 if self.sequence_index < len(self.sequence_files) else 0
         return img
 
     def setup_image_sequence(self):
         if isinstance(self.source, str) and self.source != 'camera':
-            self.sequence_files = [f for f in os.listdir(self.source)]
-            self.sequence_files.sort()
+            self.sequence_files = sorted([f for f in os.listdir(self.source)])
+            print self.sequence_files
             self.sequence_index = 0
         else:
             print "Sequence source must be a folder relative path"
@@ -99,8 +109,8 @@ class MainApp(StepStandalone):
         self.cleanup_angle()
         self.original_img = self.get_image()
         self.export_images()
+        print('Waiting for angle update...')
         while not self.updated_angle:
-            print('Waiting for angle update...')
             time.sleep(5)
         while not self.should_stop(k):
             cv2.destroyAllWindows()
@@ -110,9 +120,9 @@ class MainApp(StepStandalone):
             print "angle:%d" % self.settings['predefined_angle']
             self.export_images()
             k = cv2.waitKey(1)  # TODO: set to 20
-            while not self.updated_angle:  # todo: disable later
-                print('Waiting for angle update...')
-                time.sleep(5)
+            # while not self.updated_angle:  # todo: disable later
+            #     print('Waiting for angle update...')
+            #     time.sleep(5)
         print('Finished')
 
     def cleanup_angle(self):
@@ -122,77 +132,132 @@ class MainApp(StepStandalone):
         except:
             print('angle file didn\'t existed')
 
+    def add_angle(self, angle):
+        self.angles.append(angle)
+        while len(self.angles) > self.angle_buffer_max_size:
+            self.angles.popleft()
+
+    def add_mask(self, mask):
+        self.masks.append(mask)
+        self.mask_sizes.append(cv2.sumElems(mask)[0])
+        while len(self.masks) > self.angle_buffer_max_size:
+            self.masks.popleft()
+            self.mask_sizes.popleft()
+
+    def avg_angle(self):
+        return sum(self.angles)/len(self.angles)
+
+    def avg_mask_size(self):
+        return sum(self.mask_sizes)/len(self.mask_sizes)
+
+    def and_mask(self):
+        accum = None
+        for i in range(len(self.masks)):
+            m = self.masks[i]
+            if i == 0:
+                accum = m
+            else:
+                accum = cv2.bitwise_and(accum, m)
+        return m
+
+    def or_mask(self):
+        accum = None
+        for i in range(len(self.masks)):
+            m = self.masks[i]
+            if i == 0:
+                accum = m
+            else:
+                accum = cv2.bitwise_or(accum, m)
+        return m
+
+    def effective_mask(self, mask):
+        mask_size = cv2.sumElems(mask)[0]
+        change_threshold = 0.15
+
+        if len(self.masks) >= self.angle_buffer_max_size:
+            if self.avg_mask_size() * (1+change_threshold) < mask_size:
+                # mask size has increased too much (a lot of false positives)
+                print "mask size has increased too much (a lot of false positives)"
+                return cv2.bitwise_and(self.or_mask(), mask)
+            elif self.avg_mask_size() * (1-change_threshold) > mask_size:
+                # mask size has decreased too much (a lot of false negatives)
+                print "mask size has decreased too much (a lot of false negatives)"
+                return cv2.bitwise_or(self.and_mask(), mask)
+        return mask
+
     def update_angle(self, threadName, delay):
         v = 1
         while True:
+            changed = False
             try:
                 settings_file = open(self.angle_file, 'r+')
                 file_content = settings_file.readline()
                 settings_file.close()
                 angle_str, ts = file_content.split(" ")
                 if self.last_ts != ts:
+                    changed = True
                     self.last_ts = ts
                     self.updated_angle = True
                     self.started = True
-                    angle = int(angle_str) if angle >= 0 else self.settings['predefined_angle']
+                    angle = int(angle_str)
                     print('New angle: '+str(angle))
+                    if angle < 0:
+                        angle = self.settings['predefined_angle']
+                        print('Angle was negative, reusing previous: '+str(angle))
+                    else:
+                        self.add_angle(angle)
+                    print('Avg angle: '+str(self.avg_angle()))
+                    angle = self.avg_angle()
             except:
                 angle = self.settings['predefined_angle']
-            self.settings['predefined_angle'] = angle
-            self.processor.settings['predefined_angle'] = angle
-            print "-------------------"
+            if changed:
+                print('Angle buffer: '+str(self.angles))
+                self.settings['predefined_angle'] = angle
+                self.processor.settings['predefined_angle'] = angle
+                print "-------------------"
             time.sleep(5)
-
-    # def open_socket(self):
-    #     HOST = ''  # Symbolic name, meaning all available interfaces
-    #     PORT = 8888  # Arbitrary non-privileged port
-    #
-    #     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #     print 'Socket created'
-    #
-    #     # Bind socket to local host and port
-    #     try:
-    #         s.bind((HOST, PORT))
-    #     except socket.error as msg:
-    #         print 'Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
-    #         sys.exit()
-    #
-    #     print 'Socket bind complete'
-    #     self.socket = s
-    #     # Start listening on socket
-    #     self.socket.listen(10)
-    #     print 'Socket now listening'
-    #
-    #     return s
-    #
-    # def listen_socket(self):
-    #     conn, addr = self.socket.accept()
-    #     print 'Connected with ' + addr[0] + ':' + str(addr[1])
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
 
     def export_images(self):
-        if self.updated_angle or not self.started:
-            print('Exporting images...')
-            self.updated_angle = False
-            folder = AngleFinder.source
-            folder = folder + "/" if not folder.endswith("/") else folder
-            image_files = os.listdir(folder)
+        # Export images for angle finder
+        print('Exporting images...')
+        self.updated_angle = False
+        # Read old files in folder
+        folder = AngleFinder.source
+        folder = folder + "/" if not folder.endswith("/") else folder
+        image_files = os.listdir(folder)
 
-            print('Deleting previous images...')
-            for file in image_files:
-                print(folder+file)
-                os.remove(folder+file)
-            ts = time.time()
-            img_name = str(ts) + ".png"
+        print('Deleting previous images...')
+        for file in image_files:
+            print(folder+file)
+            os.remove(folder+file)
 
-            print('Exporting '+folder+img_name)
-            if self.started:
-                mask_name = AngleFinder.mask_prefix + img_name
-                print('Exporting '+folder+mask_name)
-                cv2.imwrite(folder+mask_name, self.path_mask)
-                cv2.imwrite('img/out/'+mask_name, self.path_mask)
-            cv2.imwrite(folder+img_name, self.original_img)
-            cv2.imwrite('img/out/'+img_name, self.original_img)
-            print('Exported images...')
+        # Generate unique crescent image name
+        img_name = str(self.sequence_index).zfill(7) + ".png"
+        img_path = folder+img_name
+
+        print('Exporting '+img_path)
+        if self.started:
+            mask_name = AngleFinder.mask_prefix + img_name
+            mask_img_path = folder+mask_name
+            print('Exporting '+mask_img_path)
+
+            angled_img_name = str(self.sequence_index).zfill(7) + "-" + \
+                              str(self.settings['predefined_angle']) + ".png"
+            angled_img_path = folder+img_name
+            cv2.imwrite(folder+mask_name, self.path_mask)
+            # cv2.imwrite('img/out/'+mask_name, self.path_mask)
+
+            # Export mono projected image for debuggimg purpouses
+            # cv2.imwrite('img/out/mono_' +
+            #             angled_img_name, self.mono) # TODO: remove
+            cv2.imwrite('img/out/edged_' +
+                        angled_img_name, self.processed_img) # TODO: remove
+
+        # Export the original image after the mask because the angle finder
+        # looks first for the original image and assumes that if there is a mask for
+        # it it's been already generated
+        cv2.imwrite(folder+img_name, self.original_img)
+        print('Exported images...')

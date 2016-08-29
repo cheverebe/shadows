@@ -13,6 +13,8 @@ class InteractiveDistanceFindStandalone(StepStandalone):
         'max_color_dist': 0.3
     }
     window_name = 'Invariant image tester'
+    h1_window_name = 'Histogram 1'
+    h2_window_name = 'Histogram 2'
     processor_class = DistanceFinder
 
     WAITING = 0
@@ -41,8 +43,14 @@ class InteractiveDistanceFindStandalone(StepStandalone):
             self.update_screen()
             if self.status == self.FIRST_CLICK and not self.region_a:
                 self.status = self.WAITING
+            elif self.status == self.FIRST_CLICK and self.region_a:
+                cv2.imshow(self.h1_window_name, self.region_a.plot_histograms())
+                cv2.waitKey(1)
             if self.status == self.SECOND_CLICK and not self.region_b:
                 self.status = self.FIRST_CLICK
+            elif self.status == self.SECOND_CLICK and self.region_b:
+                cv2.imshow(self.h2_window_name, self.region_b.plot_histograms())
+                cv2.waitKey(1)
 
     def initialize_processor(self):
         pip = ShadowDetectionPipeline()

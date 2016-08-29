@@ -1,6 +1,7 @@
 import cv2
 import json
 import numpy as np
+# from clahe import clahe_2
 
 
 class StepStandalone(object):
@@ -9,10 +10,9 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/sequences/1/um_000044.png'
+        img_path = 'img/sequences/11/000071.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
-        # self.original_img = clahe_2(self.original_img)
 
         self.settings = self.load_settings()
         self.processor = self.initialize_processor()
@@ -101,7 +101,9 @@ class StepStandalone(object):
             print "Please select points to initialize the road mask and press 'x'"
 
             while k != ord('x'):
-                k = cv2.waitKey(20)
+                k = cv2.waitKey(0)
+
+            self.destroy_window()
 
             w = self.original_img.shape[0]
             h = self.original_img.shape[1]
@@ -119,3 +121,7 @@ class StepStandalone(object):
         if event == cv2.EVENT_LBUTTONDOWN:
             self.points.append([x, y])
             print "Selected %d points" % len(self.points)
+
+    def destroy_window(self):
+        cv2.destroyWindow(self.window_name)
+        cv2.waitKey(1)

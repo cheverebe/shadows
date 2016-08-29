@@ -42,23 +42,26 @@ class ColorSegmentator(object):
         out.append(255)
         return out
 
-    @staticmethod
-    def plot_histogram(hist, max=None, img=None, color=(0,0,0)):
+    hist_h = 600
+    hist_w = 256
+
+    @classmethod
+    def plot_histogram(cls, hist, max=None, img=None, color=(0,0,0)):
         margin = 20
         if img is None:
-            img = np.ones((256*3, 600+2*margin, 3)) * 255
-        pts = [int(val*600/max) for val in hist]
+            img = np.ones((cls.hist_h+2*margin, cls.hist_w*3, 3)) * 255
+        pts = [int(val*cls.hist_h/max) for val in hist]
 
-        pts = [[3*i, 600 + margin - pts[i]] for i in range(len(pts))]
+        pts = [[3*i, cls.hist_h + margin - pts[i]] for i in range(len(pts))]
         pts = np.array(pts, np.int32)
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False, color)
         return img
 
-    @staticmethod
-    def plot_peak(peaks, img):
+    @classmethod
+    def plot_peak(cls, peaks, img):
         for peak in peaks:
-            img = cv2.line(img, (peak*3, 0), (peak*3, 600),(0,255,0))
+            img = cv2.line(img, (peak*3, 0), (peak*3, cls.hist_h),(0,cls.hist_w,0))
         return img
 
     @staticmethod

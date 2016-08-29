@@ -4,8 +4,13 @@ import os
 
 import time
 
+from LAB.shadow_detection.utils import equalize_hist_3d
+from boudary_drawer import draw_boundaries
+from path_finder import find_path
 from standalones.angle_finder_standalone import AngleFinderStandalone
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
+
+import numpy as np
 
 
 class AngleFinder(AngleFinderStandalone):
@@ -73,7 +78,6 @@ class AngleFinder(AngleFinderStandalone):
             self.pre_processed_img = self.pre_process_image()
             self.export_angle()
             self.update_img()
-            cv2.imwrite('out/'+str(self.idx)+'.png', self.processed_img)
             self.idx += 1
             print "angle:%d" % self.angle
             k = cv2.waitKey(20)
