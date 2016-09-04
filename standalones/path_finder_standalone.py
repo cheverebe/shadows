@@ -45,6 +45,11 @@ class PathFinderStandalone(StepStandalone):
         self.processor.settings['tolerance'] = pos
         self.update_screen()
 
+    def blur_callback(self, pos):
+        self.settings['blur_kernel_size'] = (pos, pos)
+        self.processor.settings['blur_kernel_size'] = (pos, pos)
+        self.update_screen()
+
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
 
@@ -59,6 +64,12 @@ class PathFinderStandalone(StepStandalone):
                            self.settings['tolerance'],
                            255,
                            self.tolerance_callback)
+
+        cv2.createTrackbar('blur',
+                           self.window_name,
+                           self.settings['blur_kernel_size'][0],
+                           50,
+                           self.blur_callback)
 
     def pre_process_image(self):
         log_chrom = self.processor.log_chrom_image(self.original_img)

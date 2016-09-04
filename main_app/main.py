@@ -18,7 +18,7 @@ import thread
 
 
 class MainApp(StepStandalone):
-    source = 'img/sequences/11/'
+    source = 'img/sequences/21/'
     angle_file = AngleFinder.angle_file_path
     default_settings = {
         'predefined_angle': None,
@@ -29,6 +29,8 @@ class MainApp(StepStandalone):
     window_name = 'MainApp'
     processor_class = InvariantImageGenerator
     angle_buffer_max_size = 5
+    mask_buffer_max_size = 8
+    change_threshold = 0.15
 
     def __init__(self):
         self.socket = None
@@ -64,10 +66,8 @@ class MainApp(StepStandalone):
         self.mono = np.uint8(equalize_hist_3d(self.mono))
 
         b_eq_inv_mono = cv2.blur(self.mono, tuple(self.settings['blur_kernel_size']))
-        mask = find_path(b_eq_inv_mono, self.settings)
 
-        self.path_mask = self.effective_mask(mask)
-        self.add_mask(mask)
+        self.path_mask = self.effective_mask(b_eq_inv_mono)
         edged = draw_boundaries(self.original_img, self.path_mask)
 
         self.processed_img = edged
@@ -140,7 +140,7 @@ class MainApp(StepStandalone):
     def add_mask(self, mask):
         self.masks.append(mask)
         self.mask_sizes.append(cv2.sumElems(mask)[0])
-        while len(self.masks) > self.angle_buffer_max_size:
+        while len(self.masks) > self.mask_buffer_max_size:
             self.masks.popleft()
             self.mask_sizes.popleft()
 
@@ -150,40 +150,65 @@ class MainApp(StepStandalone):
     def avg_mask_size(self):
         return sum(self.mask_sizes)/len(self.mask_sizes)
 
-    def and_mask(self):
+    def avg_mask(self):
         accum = None
-        for i in range(len(self.masks)):
+        n = len(self.masks)
+        for i in range(n):
             m = self.masks[i]
             if i == 0:
-                accum = m
+                accum = np.uint16(m)
             else:
-                accum = cv2.bitwise_and(accum, m)
-        return m
+                accum += m.reshape(accum.shape)
+        avg_m = np.uint8(accum / n)
+        retval, tmask = cv2.threshold(avg_m, 128, 255, cv2.THRESH_BINARY)
+        return tmask
 
-    def or_mask(self):
-        accum = None
-        for i in range(len(self.masks)):
-            m = self.masks[i]
-            if i == 0:
-                accum = m
-            else:
-                accum = cv2.bitwise_or(accum, m)
-        return m
-
-    def effective_mask(self, mask):
+    def effective_mask(self, b_eq_inv_mono):
+        mask = find_path(b_eq_inv_mono, self.settings)
+        effective_mask = None
         mask_size = cv2.sumElems(mask)[0]
-        change_threshold = 0.15
 
         if len(self.masks) >= self.angle_buffer_max_size:
-            if self.avg_mask_size() * (1+change_threshold) < mask_size:
+            # First try to adapt tolerance
+            if self.avg_mask_size() * (1+self.change_threshold) < mask_size and self.decrease_tolerance():
+                # mask size has increased too much (a lot of false positives)
+                print "Decreased tolerance: " + str(self.settings['tolerance'])
+                mask = find_path(b_eq_inv_mono, self.settings)
+                mask_size = cv2.sumElems(mask)[0]
+            elif self.avg_mask_size() * (1-self.change_threshold) > mask_size and self.increase_tolerance():
+                # mask size has decreased too much (a lot of false negatives)
+                print "Increased tolerance: " + str(self.settings['tolerance'])
+                mask = find_path(b_eq_inv_mono, self.settings)
+                mask_size = cv2.sumElems(mask)[0]
+
+            # If adapting tolerance is not enough use mask buffer
+            if self.avg_mask_size() * (1+self.change_threshold) < mask_size:
                 # mask size has increased too much (a lot of false positives)
                 print "mask size has increased too much (a lot of false positives)"
-                return cv2.bitwise_and(self.or_mask(), mask)
-            elif self.avg_mask_size() * (1-change_threshold) > mask_size:
+                effective_mask = cv2.bitwise_and(self.avg_mask(), mask)
+            elif self.avg_mask_size() * (1-self.change_threshold) > mask_size:
                 # mask size has decreased too much (a lot of false negatives)
                 print "mask size has decreased too much (a lot of false negatives)"
-                return cv2.bitwise_or(self.and_mask(), mask)
-        return mask
+                effective_mask = cv2.bitwise_or(self.avg_mask(), mask)
+
+        if effective_mask is None:
+            effective_mask = mask
+
+        self.add_mask(mask)
+
+        return effective_mask
+
+    def decrease_tolerance(self):
+        if self.settings['tolerance'] >=4:
+            self.settings['tolerance'] -= 2
+            return True
+        return False
+
+    def increase_tolerance(self):
+        if self.settings['tolerance'] <=4:
+            self.settings['tolerance'] += 2
+            return True
+        return False
 
     def update_angle(self, threadName, delay):
         v = 1

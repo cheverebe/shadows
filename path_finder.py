@@ -21,10 +21,8 @@ def find_path_tone(img):
 
 def generate_threshhold_mask(image, minval, maxval):
     image = np.uint8(image)
-    retval, mask_lw_high = cv2.threshold(image, maxval, 255, cv2.THRESH_BINARY)
-    mask_lw_high = 255 - mask_lw_high
-    retval, mask_hg_min = cv2.threshold(image, minval, 255, cv2.THRESH_BINARY_INV)
-    mask_hg_min = 255 - mask_hg_min
+    retval, mask_lw_high = cv2.threshold(image, maxval, 255, cv2.THRESH_BINARY_INV)
+    retval, mask_hg_min = cv2.threshold(image, minval, 255, cv2.THRESH_BINARY)
     # erase mask values
     final = cv2.bitwise_and(mask_hg_min, mask_lw_high)
     return final
