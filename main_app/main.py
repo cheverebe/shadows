@@ -175,11 +175,13 @@ class MainApp(StepStandalone):
                 print "Decreased tolerance: " + str(self.settings['tolerance'])
                 mask = find_path(b_eq_inv_mono, self.settings)
                 mask_size = cv2.sumElems(mask)[0]
+                self.increase_tolerance()
             elif self.avg_mask_size() * (1-self.change_threshold) > mask_size and self.increase_tolerance():
                 # mask size has decreased too much (a lot of false negatives)
                 print "Increased tolerance: " + str(self.settings['tolerance'])
                 mask = find_path(b_eq_inv_mono, self.settings)
                 mask_size = cv2.sumElems(mask)[0]
+                self.decrease_tolerance()
 
             # If adapting tolerance is not enough use mask buffer
             if self.avg_mask_size() * (1+self.change_threshold) < mask_size:
@@ -194,7 +196,7 @@ class MainApp(StepStandalone):
         if effective_mask is None:
             effective_mask = mask
 
-        self.add_mask(mask)
+        self.add_mask(effective_mask)
 
         return effective_mask
 
