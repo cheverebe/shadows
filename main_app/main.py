@@ -1,15 +1,13 @@
 import numpy as np
 import cv2
 import time
-import socket
 
 import os
-import sys
 
 from LAB.shadow_detection.utils import equalize_hist_3d
 from boudary_drawer import draw_boundaries
 from main_app.angle_finder import AngleFinder
-from path_finder import find_path
+from path_finder import find_path, best_contour
 from standalones.step_standalone import StepStandalone
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from collections import deque
@@ -30,7 +28,7 @@ class MainApp(StepStandalone):
     processor_class = InvariantImageGenerator
     angle_buffer_max_size = 5
     mask_buffer_max_size = 8
-    change_threshold = 0.15
+    change_threshold = 0.30
 
     def __init__(self):
         self.socket = None
@@ -168,7 +166,7 @@ class MainApp(StepStandalone):
         effective_mask = None
         mask_size = cv2.sumElems(mask)[0]
 
-        if len(self.masks) >= self.angle_buffer_max_size:
+        if False and len(self.masks) >= self.angle_buffer_max_size: # TODO: WATCH
             # First try to adapt tolerance
             if self.avg_mask_size() * (1+self.change_threshold) < mask_size and self.decrease_tolerance():
                 # mask size has increased too much (a lot of false positives)
@@ -196,9 +194,10 @@ class MainApp(StepStandalone):
         if effective_mask is None:
             effective_mask = mask
 
-        self.add_mask(effective_mask)
+        self.add_mask(mask)
 
-        return effective_mask
+        # return effective_mask  TODO: re enable
+        return best_contour(self.avg_mask())
 
     def decrease_tolerance(self):
         if self.settings['tolerance'] >=4:
@@ -271,8 +270,7 @@ class MainApp(StepStandalone):
             mask_img_path = folder+mask_name
             print('Exporting '+mask_img_path)
 
-            angled_img_name = str(self.sequence_index).zfill(7) + "-" + \
-                              str(self.settings['predefined_angle']) + ".png"
+            angled_img_name = self.export_image_name()
             angled_img_path = folder+img_name
             cv2.imwrite(folder+mask_name, self.path_mask)
             # cv2.imwrite('img/out/'+mask_name, self.path_mask)
@@ -288,3 +286,9 @@ class MainApp(StepStandalone):
         # it it's been already generated
         cv2.imwrite(folder+img_name, self.original_img)
         print('Exported images...')
+
+    def export_image_name(self):
+        if isinstance(self.source, str) and self.source != 'camera':
+            return str(self.sequence_index).zfill(7) + ".png"
+        else:
+            return self.sequence_files[self.sequence_index]

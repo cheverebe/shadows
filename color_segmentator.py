@@ -123,8 +123,8 @@ class ColorSegmentator(object):
 
         segments = slic(img,
                         n_segments=20,
-                        compactness=0.5,
-                        sigma=sigma,
+                        compactness=1,
+                        sigma=1,
                         convert2lab=True,
                         min_size_factor=0.05,
                         max_size_factor=0.5)
