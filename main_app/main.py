@@ -16,7 +16,7 @@ import thread
 
 
 class MainApp(StepStandalone):
-    source = 'img/sequences/21/'
+    source = 'img/sequences/1/'
     angle_file = AngleFinder.angle_file_path
     default_settings = {
         'predefined_angle': None,

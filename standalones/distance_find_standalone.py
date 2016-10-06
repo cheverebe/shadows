@@ -39,7 +39,7 @@ class DistanceFindStandalone(StepStandalone):
         matches = self.processor.region_matches_image()
         regions = self.processor.segmentation_image()
         self.processed_img = np.concatenate((matches,
-                                             regions), axis=1)
+                                             regions), axis=0)
 
     def region_distance_balance_callback(self, value):
         value /= 100.0

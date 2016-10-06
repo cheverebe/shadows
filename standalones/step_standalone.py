@@ -2,6 +2,7 @@ import cv2
 import json
 import numpy as np
 # from clahe import clahe_2
+import time
 
 
 class StepStandalone(object):
@@ -10,7 +11,7 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/sequences/21/000268.png'
+        img_path = 'img/sequences/1/000071.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
 
@@ -27,12 +28,15 @@ class StepStandalone(object):
     def run(self):
         # Do whatever you want with contours
         k = None
-        while (not k) or (k == ord('s')):
+        while (not k) or (k == ord('s')) or (k == ord('e')):
             k = cv2.waitKey(0)
             if k == ord('s'):
                 self.save_settings()
                 self.message = {'text': 'Saved'}
                 self.update_screen()
+            if k == ord('e'):
+                self.export_current_image()
+                print('exported')
 
     def display_message(self):
         if self.message:
@@ -125,3 +129,7 @@ class StepStandalone(object):
     def destroy_window(self):
         cv2.destroyWindow(self.window_name)
         cv2.waitKey(1)
+
+    def export_current_image(self):
+        name = "img/export/" + str(time.time()) + '.png'
+        cv2.imwrite(name, self.processed_img)

@@ -29,7 +29,7 @@ class SegmentatorStandalone(StepStandalone):
         for segment in segmentation:
             color = tuple([random.randint(0, 255) for _ in xrange(3)])
             regions = draw_boundaries(regions, segment, color)
-        return np.concatenate((boundaries, regions), axis=1)
+        return np.concatenate((boundaries, regions), axis=0)
 
     def update_img(self):
         segmentation = self.processor.segment_image(self.pre_processed_img)
