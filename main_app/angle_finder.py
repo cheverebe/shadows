@@ -4,18 +4,16 @@ import os
 
 import time
 
-from LAB.shadow_detection.utils import equalize_hist_3d
-from boudary_drawer import draw_boundaries
-from path_finder import find_path
-from standalones.angle_finder_standalone import AngleFinderStandalone
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
+from standalones.angle_finder_standalone import AngleFinderStandalone
 
-import numpy as np
+from standalones.entropy_angle_finder_standalone import EntropyAngleFinderStandalone
 
 
 class AngleFinder(AngleFinderStandalone):
-    source = 'img/angle_finder_input/'
-    angle_file_path = 'found_angle.txt'
+# class AngleFinder(EntropyAngleFinderStandalone):
+    default_source = 'img/angle_finder_input/'
+    default_angle_file_path = 'found_angle.txt'
     default_settings = {
         'predefined_angle': 80,
         'blur_kernel_size': [5, 5],
@@ -26,7 +24,15 @@ class AngleFinder(AngleFinderStandalone):
     processor_class = InvariantImageGenerator
     mask_prefix = "mask_"
 
-    def __init__(self):
+    def __init__(self, source=None, angle_file_path=None):
+        if not source:
+            self.source = self.default_source
+        else:
+            self.source = source
+        if not angle_file_path:
+            self.angle_file_path = angle_file_path
+        else:
+            self.angle_file_path = self.default_angle_file_path
         self.message = None
         self.angle = -1
         self.dist_finder = 0
@@ -35,6 +41,7 @@ class AngleFinder(AngleFinderStandalone):
         self.img_path = None
         self.road_mask_path = None
         self.idx = 0
+        self.end = False
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
@@ -67,7 +74,7 @@ class AngleFinder(AngleFinderStandalone):
 
     def run(self):
         k = None
-        while k != ord('x'):
+        while k != ord('x') and not self.end:
             cv2.destroyAllWindows()
             self.get_image()
             try:

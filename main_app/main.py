@@ -16,8 +16,6 @@ import thread
 
 
 class MainApp(StepStandalone):
-    source = 'img/sequences/1/'
-    angle_file = AngleFinder.angle_file_path
     default_settings = {
         'predefined_angle': None,
         'blur_kernel_size': [5, 5],
@@ -29,19 +27,47 @@ class MainApp(StepStandalone):
     angle_buffer_max_size = 5
     mask_buffer_max_size = 8
     change_threshold = 0.30
+    MASK_FOLDER_NAME = 'mask/'
+    EDGED_FOLDER_NAME = 'edged/'
+    INVARIANT_FOLDER_NAME = 'invariant/'
+    TIMES_FILE_NAME = 'times.txt'
+    ALLOWED_IMAGE_EXTENSION = '.png'
+    DEFAULT_MASK_FOLDER = 'default_mask/'
 
-    def __init__(self):
+    def __init__(self, source='img/sequences/3_1/', output_folder='img/out/',
+                 export_invariant=False, export_edged=False, angle_file=None, angle_finder_folder=AngleFinder.default_source):
+        angle_finder_folder = angle_finder_folder + "/" if not angle_finder_folder.endswith("/") else angle_finder_folder
+        self.angle_finder_folder = angle_finder_folder
+        if angle_file:
+            self.angle_file = AngleFinder.default_angle_file_path
+        else:
+            self.angle_file = angle_file
         self.socket = None
         self.last_ts = None
         self.started = False
         self.updated_angle = False
         self.message = None
+        #   Deques
         self.angles = deque()
         self.masks = deque()
         self.mask_sizes = deque()
         self.mono = None
+        self.img_name = ''
+        #   Flags
+        self.export_invariant = export_invariant
+        self.export_edged = export_edged
+        #   Folders
+        self.source_folder = source
+        self.output_folder = output_folder
+        self.mask_folder = output_folder + self.MASK_FOLDER_NAME
+        self.edged_folder = output_folder + self.EDGED_FOLDER_NAME
+        self.invariant_folder = output_folder + self.INVARIANT_FOLDER_NAME
+        self.init_folders()
+        #   Files
+        self.times_file = output_folder + self.TIMES_FILE_NAME
+        self.times_file_resource = open(self.times_file, 'w')
 
-        if self.source == 'camera':
+        if self.source_folder == 'camera':
             self.cap = cv2.VideoCapture(0)
             for i in range(5):
                 ret, frame = self.cap.read()
@@ -52,7 +78,7 @@ class MainApp(StepStandalone):
             self.setup_image_sequence()
             self.should_stop = lambda k: self.sequence_index == len(self.sequence_files)
 
-        print('Reading from '+self.source)
+        print('Reading from ' + self.source_folder)
 
         self.settings = self.load_settings()
         self.processor = self.initialize_processor()
@@ -75,7 +101,7 @@ class MainApp(StepStandalone):
         return self.processor.project_to_2d(log_chrom)
 
     def get_image(self):
-        if self.source == 'camera':
+        if self.source_folder == 'camera':
             ret, frame = self.cap.read()
             return frame
         else:
@@ -83,14 +109,15 @@ class MainApp(StepStandalone):
 
     def get_next_sequence_image(self):
         img_path = self.sequence_files[self.sequence_index]
+        self.img_name = self.sequence_files[self.sequence_index]
         print "Reading: " + img_path
-        img = cv2.imread(self.source+img_path)
+        img = cv2.imread(self.source_folder + img_path)
         self.sequence_index += 1 if self.sequence_index < len(self.sequence_files) else 0
         return img
 
     def setup_image_sequence(self):
-        if isinstance(self.source, str) and self.source != 'camera':
-            self.sequence_files = sorted([f for f in os.listdir(self.source)])
+        if isinstance(self.source_folder, str) and self.source_folder != 'camera':
+            self.sequence_files = sorted([f for f in os.listdir(self.source_folder) if f.endswith(self.ALLOWED_IMAGE_EXTENSION)])
             print self.sequence_files
             self.sequence_index = 0
         else:
@@ -110,18 +137,26 @@ class MainApp(StepStandalone):
         print('Waiting for angle update...')
         while not self.updated_angle:
             time.sleep(5)
+
+        times = []
+
         while not self.should_stop(k):
             cv2.destroyAllWindows()
+
+            start_time = time.time()
+
             self.original_img = self.get_image()
             self.pre_processed_img = self.pre_process_image()
             self.update_img()
+
             print "angle:%d" % self.settings['predefined_angle']
             self.export_images()
-            k = cv2.waitKey(1)  # TODO: set to 20
-            # while not self.updated_angle:  # todo: disable later
-            #     print('Waiting for angle update...')
-            #     time.sleep(5)
+            times.append(str(time.time() - start_time)+'\n')
+            k = cv2.waitKey(20)
         print('Finished')
+
+        self.times_file_resource.writelines(times)
+        self.times_file_resource.close()
 
     def cleanup_angle(self):
         try:
@@ -196,8 +231,7 @@ class MainApp(StepStandalone):
 
         self.add_mask(mask)
 
-        # return effective_mask  TODO: re enable
-        return best_contour(self.avg_mask())
+        return effective_mask
 
     def decrease_tolerance(self):
         if self.settings['tolerance'] >=4:
@@ -251,44 +285,72 @@ class MainApp(StepStandalone):
         print('Exporting images...')
         self.updated_angle = False
         # Read old files in folder
-        folder = AngleFinder.source
-        folder = folder + "/" if not folder.endswith("/") else folder
-        image_files = os.listdir(folder)
+        image_files = os.listdir(self.angle_finder_folder)
 
         print('Deleting previous images...')
         for file in image_files:
-            print(folder+file)
-            os.remove(folder+file)
+            print(self.angle_finder_folder+file)
+            os.remove(self.angle_finder_folder+file)
 
         # Generate unique crescent image name
-        img_name = str(self.sequence_index).zfill(7) + ".png"
-        img_path = folder+img_name
+        # img_name = str(self.sequence_index).zfill(7) + ".png"
+        img_name = self.img_name
+        img_path = self.angle_finder_folder+img_name
 
         print('Exporting '+img_path)
         if self.started:
             mask_name = AngleFinder.mask_prefix + img_name
-            mask_img_path = folder+mask_name
+            mask_img_path = self.angle_finder_folder+mask_name
             print('Exporting '+mask_img_path)
 
-            angled_img_name = self.export_image_name()
-            angled_img_path = folder+img_name
-            cv2.imwrite(folder+mask_name, self.path_mask)
-            # cv2.imwrite('img/out/'+mask_name, self.path_mask)
+            cv2.imwrite(self.angle_finder_folder+mask_name, self.path_mask)
+            cv2.imwrite(self.mask_folder+mask_name, self.path_mask)
 
             # Export mono projected image for debuggimg purpouses
-            # cv2.imwrite('img/out/mono_' +
-            #             angled_img_name, self.mono) # TODO: remove
-            cv2.imwrite('img/out/edged_' +
-                        angled_img_name, self.processed_img) # TODO: remove
+            if self.export_invariant:
+                cv2.imwrite(self.invariant_folder+mask_name, self.mono)
+            if self.export_edged:
+                cv2.imwrite(self.edged_folder+mask_name, self.processed_img)
+        elif self.DEFAULT_MASK_FOLDER in os.listdir(self.source_folder):
+            default_mask_path = self.source_folder + self.DEFAULT_MASK_FOLDER
+            default_mask_name = os.listdir(default_mask_path)[0]
+            default_mask_path += default_mask_name
+            os.system('cp ' + default_mask_path + ' ' + self.angle_finder_folder)
 
         # Export the original image after the mask because the angle finder
         # looks first for the original image and assumes that if there is a mask for
         # it it's been already generated
-        cv2.imwrite(folder+img_name, self.original_img)
+        cv2.imwrite(self.angle_finder_folder+img_name, self.original_img)
         print('Exported images...')
 
     def export_image_name(self):
-        if isinstance(self.source, str) and self.source != 'camera':
+        if isinstance(self.source_folder, str) and self.source_folder != 'camera':
             return str(self.sequence_index).zfill(7) + ".png"
         else:
             return self.sequence_files[self.sequence_index]
+
+    def init_folders(self):
+        try:
+            os.system('rm -rf '+self.output_folder)
+            os.system('mkdir '+self.output_folder)
+        except Exception as e:
+            print(e)
+        try:
+            os.system('mkdir '+self.mask_folder)
+        except Exception as e:
+            print(e)
+        if self.export_edged:
+            try:
+                os.system('mkdir '+self.edged_folder)
+            except Exception as e:
+                print(e)
+        if self.export_invariant:
+            try:
+                os.system('mkdir '+self.invariant_folder)
+            except Exception as e:
+                print(e)
+        if self.angle_finder_folder:
+            try:
+                os.system('mkdir '+self.angle_finder_folder)
+            except Exception as e:
+                print(e)

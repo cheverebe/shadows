@@ -105,7 +105,8 @@ class Region(object):
             no_channels = self.image.shape[2] if len(self.image.shape) > 2 else 1
             return [np.array([])]*no_channels
 
-    def apply_mask(self, image, mask):
+    @staticmethod
+    def apply_mask(image, mask):
         if len(mask.shape) > 2 or (len(image.shape) == len(mask.shape)):
             if not len(image.shape) == len(mask.shape):
                 print "Mask should be a grayscale or have the same depth of image"

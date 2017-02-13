@@ -1,7 +1,6 @@
 import cv2
 import json
 import numpy as np
-# from clahe import clahe_2
 import time
 
 
@@ -11,7 +10,7 @@ class StepStandalone(object):
     processor_class = None
 
     def __init__(self):
-        img_path = 'img/sequences/1/000071.png'
+        img_path = 'img/sequences/8_1/000070.png'
         self.message = None
         self.original_img = cv2.imread(img_path)
 

@@ -16,7 +16,7 @@ class ShadowDetectionStandalone(StepStandalone):
         inverted_mask = 255 - mask
         mask_as_bgr = cv2.cvtColor(inverted_mask, cv2.COLOR_GRAY2BGR)
         self.processed_img = np.concatenate((self.original_img,
-                                             mask_as_bgr), axis=0)
+                                             mask_as_bgr), axis=1)
 
     def kernel_size_x_callback(self, value):
         self.processor.settings['dilation_kernel_size_shadow_mask'][0] = value

@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from Greyscale.InvariantImageGenerator import InvariantImageGenerator
 from LAB.shadow_detection.pipeline import ShadowDetectionPipeline
+from LAB.shadow_detection.utils import equalize_hist_3d
 from standalones.step_standalone import StepStandalone
 from Greyscale.distance2 import DistanceFinder
 
@@ -11,7 +12,7 @@ class AngleFinderStandalone(StepStandalone):
 
     def __init__(self):
         self.angle = -1
-        self.dist_finder = 0
+        self.dist_finder = None
         super(AngleFinderStandalone, self).__init__()
         self.estimated_road_mask = None
 
@@ -41,10 +42,10 @@ class AngleFinderStandalone(StepStandalone):
         min_distance = -1
         first = True
 
-        if self.dist_finder.has_shadows():
+        if self.should_process():
             for angle in angles:
                 mono = inv_img_gen.project_into_one_d(two_dim, angle)
-                distance = self.dist_finder.run(np.float64(mono))
+                distance = self.get_value(mono)
 
                 print str("%d, %s" % (angle, repr(distance)))
                 if distance < 0:
@@ -56,6 +57,12 @@ class AngleFinderStandalone(StepStandalone):
 
             self.angle = min_angle
         return two_dim
+
+    def should_process(self):
+        return self.dist_finder.has_shadows()
+
+    def get_value(self, img):
+        return self.dist_finder.run(np.float64(img))
 
     def initialize_windows(self):
         cv2.namedWindow(self.window_name)
@@ -75,7 +82,8 @@ class AngleFinderStandalone(StepStandalone):
             self.pre_processed_img,
             self.angle
         )
-        self.processed_img = self.dist_finder.mono_distance_image(self.processed_img)
+        self.processed_img = equalize_hist_3d(self.processed_img)
+        # self.processed_img = self.dist_finder.mono_distance_image(self.processed_img)
 
 # AngleFinderStandalone().run()
 # cv2.destroyAllWindows()
